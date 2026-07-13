@@ -7,17 +7,13 @@ export default async function SetPasswordPage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-neutral-900">Set your password</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Signed in as {user.email}. Choose a password to finish setting up your
-            account.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-app px-4">
+      <div className="w-full max-w-sm">
+        <div className="rounded-brand border border-border-default border-t-[3px] border-t-navy bg-white p-9">
+          <div className="mb-5 flex flex-col gap-1.5">
+            <h1 className="text-lg font-extrabold text-navy">Set your password</h1>
+            <p className="text-[13px] text-secondary">For {user.email}</p>
+          </div>
           <SetPasswordForm />
         </div>
       </div>

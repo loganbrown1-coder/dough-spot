@@ -3,18 +3,72 @@ import { listOrganisations, getOrganisation } from "@/lib/data/organisations";
 import { listBrandsByOrganisation } from "@/lib/data/brands";
 import { listSites } from "@/lib/data/sites";
 import { listProfiles } from "@/lib/data/profiles";
+import { ROLE_LABELS } from "@/lib/roleLabels";
 import CreateOrganisationForm from "@/app/components/CreateOrganisationForm";
 import OrgSwitcher from "@/app/components/OrgSwitcher";
 import AddBrandForm from "@/app/components/AddBrandForm";
 import AddSiteForm from "@/app/components/AddSiteForm";
 import InviteUserForm from "@/app/components/InviteUserForm";
 
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: "Super admin",
-  org_admin: "Org admin",
-  ops: "Ops",
-  site_manager: "Site manager",
-};
+function SectionCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3.5 rounded-brand border border-border-default bg-white p-5">
+      <div className="border-l-[3px] border-l-brand pl-2.5 text-sm font-bold text-navy">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function DataTable({
+  title,
+  columns,
+  rows,
+}: {
+  title: string;
+  columns: string[];
+  rows: string[][];
+}) {
+  return (
+    <div className="overflow-hidden rounded-brand border border-border-default bg-white">
+      <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
+        {title}
+      </div>
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr className="text-left font-bold text-muted">
+            {columns.map((col) => (
+              <th key={col} className="px-5 py-2.5">
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-t border-border-subtle">
+              {row.map((cell, j) => (
+                <td
+                  key={j}
+                  className={`px-5 py-2.5 ${j === 0 ? "text-body" : "text-secondary"}`}
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default async function AdminPage({
   searchParams,
@@ -35,21 +89,16 @@ export default async function AdminPage({
 
   if (!selectedOrgId) {
     return (
-      <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
-        <h1 className="text-xl font-bold text-neutral-900">Admin</h1>
-        <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-neutral-900">
-            Create the first organisation
-          </h2>
+      <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
+        <h1 className="text-2xl font-extrabold text-navy">Admin</h1>
+        <SectionCard title="Create the first organisation">
           <CreateOrganisationForm />
-        </section>
+        </SectionCard>
       </div>
     );
   }
 
-  const selectedOrg = isSuperAdmin
-    ? await getOrganisation(selectedOrgId)
-    : null;
+  const selectedOrg = isSuperAdmin ? await getOrganisation(selectedOrgId) : null;
 
   const [brands, allSites, allProfiles] = await Promise.all([
     listBrandsByOrganisation(selectedOrgId),
@@ -71,120 +120,79 @@ export default async function AdminPage({
   const siteNameById = new Map(sites.map((s) => [s.id, s.name]));
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-neutral-900">Admin</h1>
+        <h1 className="text-2xl font-extrabold text-navy">Admin</h1>
         {isSuperAdmin && organisations.length > 1 && (
           <OrgSwitcher organisations={organisations} selectedOrgId={selectedOrgId} />
         )}
       </div>
 
       {isSuperAdmin && (
-        <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-neutral-900">
-            Create a new organisation
-          </h2>
+        <SectionCard title="Create a new organisation">
           <CreateOrganisationForm />
-        </section>
+        </SectionCard>
       )}
 
       {isSuperAdmin && (
-        <p className="text-sm text-neutral-500">
-          Managing <span className="font-medium text-neutral-800">{selectedOrg?.name}</span>
+        <p className="text-sm text-secondary">
+          Managing <span className="font-semibold text-body">{selectedOrg?.name}</span>
         </p>
       )}
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-neutral-900">Add a brand</h2>
-        <AddBrandForm organisationId={selectedOrgId} />
-      </section>
+      <div className="flex flex-col gap-4">
+        <SectionCard title="Add a brand">
+          <AddBrandForm organisationId={selectedOrgId} />
+        </SectionCard>
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-neutral-900">Add a site</h2>
-        {brands.length === 0 ? (
-          <p className="text-sm text-neutral-500">Add a brand first.</p>
-        ) : (
-          <AddSiteForm brands={brands} />
-        )}
-      </section>
+        <SectionCard title="Add a site">
+          {brands.length === 0 ? (
+            <p className="text-[13px] text-secondary">Add a brand first.</p>
+          ) : (
+            <AddSiteForm brands={brands} />
+          )}
+        </SectionCard>
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-neutral-900">Invite a user</h2>
-        <InviteUserForm
-          organisationId={selectedOrgId}
-          brands={brands}
-          sites={sites}
-          canInviteSuperAdmin={isSuperAdmin}
+        <SectionCard title="Invite a user">
+          <InviteUserForm
+            organisationId={selectedOrgId}
+            brands={brands}
+            sites={sites}
+            canInviteSuperAdmin={isSuperAdmin}
+          />
+        </SectionCard>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <DataTable
+          title="Brands"
+          columns={["Name", "Sites"]}
+          rows={brands.map((b) => [
+            b.name,
+            String(sites.filter((s) => s.brandId === b.id).length),
+          ])}
         />
-      </section>
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-neutral-900">Brands</h2>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-neutral-500">
-              <th className="pb-2 font-medium">Name</th>
-            </tr>
-          </thead>
-          <tbody>
-            {brands.map((b) => (
-              <tr key={b.id} className="border-b border-neutral-100 last:border-0">
-                <td className="py-2 text-neutral-800">{b.name}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        <DataTable
+          title="Sites"
+          columns={["Name", "Brand"]}
+          rows={sites.map((s) => [s.name, brandNameById.get(s.brandId) ?? "-"])}
+        />
 
-      <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-neutral-900">Sites</h2>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-neutral-500">
-              <th className="pb-2 font-medium">Name</th>
-              <th className="pb-2 font-medium">Brand</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sites.map((s) => (
-              <tr key={s.id} className="border-b border-neutral-100 last:border-0">
-                <td className="py-2 text-neutral-800">{s.name}</td>
-                <td className="py-2 text-neutral-500">{brandNameById.get(s.brandId)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-neutral-900">Users</h2>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-neutral-500">
-              <th className="pb-2 font-medium">Email</th>
-              <th className="pb-2 font-medium">Role</th>
-              <th className="pb-2 font-medium">Scope</th>
-            </tr>
-          </thead>
-          <tbody>
-            {profiles.map((p) => (
-              <tr key={p.id} className="border-b border-neutral-100 last:border-0">
-                <td className="py-2 text-neutral-800">{p.email}</td>
-                <td className="py-2 text-neutral-500">{ROLE_LABELS[p.role]}</td>
-                <td className="py-2 text-neutral-500">
-                  {p.role === "org_admin"
-                    ? "Whole organisation"
-                    : p.siteId
-                      ? siteNameById.get(p.siteId)
-                      : p.brandId
-                        ? brandNameById.get(p.brandId)
-                        : "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        <DataTable
+          title="Users"
+          columns={["Email", "Role", "Scope"]}
+          rows={profiles.map((p) => [
+            p.email,
+            ROLE_LABELS[p.role],
+            p.role === "org_admin"
+              ? "Whole organisation"
+              : (p.siteId ? siteNameById.get(p.siteId) : undefined) ??
+                (p.brandId ? brandNameById.get(p.brandId) : undefined) ??
+                "-",
+          ])}
+        />
+      </div>
     </div>
   );
 }

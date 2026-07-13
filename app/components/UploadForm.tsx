@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { uploadCapturesAction, type UploadState } from "@/lib/actions/captures";
 import { groupSitesByBrand } from "@/lib/siteGroups";
@@ -14,10 +14,38 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-700 disabled:opacity-60"
+      className="h-[42px] self-start rounded-brand bg-brand px-6 font-bold text-white transition hover:bg-brand-light disabled:opacity-60"
     >
       {pending ? "Uploading..." : "Upload photos"}
     </button>
+  );
+}
+
+function PhotoDropzone({ n }: { n: number }) {
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  return (
+    <label
+      htmlFor={`photo${n}`}
+      className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center gap-2 rounded-brand border-[1.5px] border-dashed border-border-default bg-[#FAFBFC] px-3 py-7 text-center"
+    >
+      <span className="flex h-[34px] w-[34px] items-center justify-center rounded-brand bg-brand-bg text-brand">
+        ↑
+      </span>
+      <span className="text-[13px] font-bold text-body">Photo {n}</span>
+      <span className="max-w-full truncate text-xs text-secondary">
+        {fileName ?? "Choose file"}
+      </span>
+      <input
+        id={`photo${n}`}
+        name={`photo${n}`}
+        type="file"
+        accept="image/*"
+        required
+        className="sr-only"
+        onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+      />
+    </label>
   );
 }
 
@@ -38,10 +66,10 @@ export default function UploadForm({
   const groups = groupSitesByBrand(sites, brands);
 
   return (
-    <form action={formAction} className="space-y-5" key={state.success ? "reset" : "form"}>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label htmlFor="siteId" className="block text-sm font-medium text-neutral-700">
+    <form action={formAction} className="flex flex-col gap-5" key={state.success ? "reset" : "form"}>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label htmlFor="siteId" className="text-[13px] font-bold text-body">
             Site
           </label>
           <select
@@ -49,7 +77,7 @@ export default function UploadForm({
             name="siteId"
             defaultValue={defaultSiteId}
             required
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           >
             {groups.map((group) => (
               <optgroup key={group.brandName} label={group.brandName}>
@@ -62,8 +90,8 @@ export default function UploadForm({
             ))}
           </select>
         </div>
-        <div>
-          <label htmlFor="date" className="block text-sm font-medium text-neutral-700">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label htmlFor="date" className="text-[13px] font-bold text-body">
             Date
           </label>
           <input
@@ -72,18 +100,18 @@ export default function UploadForm({
             type="date"
             defaultValue={defaultDate}
             required
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           />
         </div>
-        <div>
-          <label htmlFor="dayPart" className="block text-sm font-medium text-neutral-700">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label htmlFor="dayPart" className="text-[13px] font-bold text-body">
             Day part
           </label>
           <select
             id="dayPart"
             name="dayPart"
             required
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           >
             {dayParts.map((dp) => (
               <option key={dp.id} value={dp.id}>
@@ -94,36 +122,21 @@ export default function UploadForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[1, 2, 3].map((n) => (
-          <div key={n}>
-            <label
-              htmlFor={`photo${n}`}
-              className="block text-sm font-medium text-neutral-700"
-            >
-              Photo {n}
-            </label>
-            <input
-              id={`photo${n}`}
-              name={`photo${n}`}
-              type="file"
-              accept="image/*"
-              required
-              className="mt-1 w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
-            />
-          </div>
+          <PhotoDropzone key={n} n={n} />
         ))}
       </div>
 
       {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-brand border border-error-border bg-error-bg px-3 py-2.5 text-[13px] text-error">
           {state.error}
         </p>
       )}
       {state.success && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-          Uploaded. These photos have replaced any previous photos for this site,
-          date, and day part.
+        <p className="rounded-brand border border-success-border bg-success-bg px-4 py-3 text-[13px] font-semibold text-success">
+          ✓ Upload complete — these photos replaced any previous photos for this
+          site, date and shift.
         </p>
       )}
 

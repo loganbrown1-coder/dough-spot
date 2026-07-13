@@ -15,7 +15,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
+      className="h-9 shrink-0 whitespace-nowrap rounded-brand bg-brand px-4 text-[13px] font-bold text-white hover:bg-brand-light disabled:opacity-60"
     >
       {pending ? "Creating..." : "Create organisation"}
     </button>
@@ -26,40 +26,36 @@ export default function CreateOrganisationForm() {
   const [state, formAction] = useActionState(createOrganisationAction, initialState);
 
   return (
-    <form action={formAction} className="space-y-3" key={state.success ? "reset" : "form"}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-neutral-700">
-            Organisation name
-          </label>
+    <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
+      <div className="flex flex-col items-end gap-3 sm:flex-row">
+        <div className="flex w-full flex-1 flex-col gap-1.5">
+          <label className="text-xs font-bold text-body">Organisation name</label>
           <input
             name="name"
             type="text"
             required
             placeholder="Acme Pizza Group"
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-neutral-700">
-            First admin&apos;s email
-          </label>
+        <div className="flex w-full flex-1 flex-col gap-1.5">
+          <label className="text-xs font-bold text-body">First admin&apos;s email</label>
           <input
             name="adminEmail"
             type="email"
             required
             placeholder="owner@acmepizza.com"
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
           />
         </div>
+        <SubmitButton />
       </div>
-      {state.error && <p className="text-sm text-red-700">{state.error}</p>}
+      {state.error && <p className="text-[13px] text-error">{state.error}</p>}
       {state.success && (
-        <p className="text-sm text-green-700">
+        <p className="text-[13px] text-success">
           Organisation created and an invite email sent.
         </p>
       )}
-      <SubmitButton />
     </form>
   );
 }

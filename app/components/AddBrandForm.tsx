@@ -12,7 +12,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
+      className="h-9 shrink-0 whitespace-nowrap rounded-brand bg-brand px-4 text-[13px] font-bold text-white hover:bg-brand-light disabled:opacity-60"
     >
       {pending ? "Adding..." : "Add brand"}
     </button>
@@ -23,21 +23,23 @@ export default function AddBrandForm({ organisationId }: { organisationId: strin
   const [state, formAction] = useActionState(createBrandAction, initialState);
 
   return (
-    <form action={formAction} className="space-y-3" key={state.success ? "reset" : "form"}>
+    <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
       <input type="hidden" name="organisationId" value={organisationId} />
-      <div>
-        <label className="block text-sm font-medium text-neutral-700">Brand name</label>
-        <input
-          name="name"
-          type="text"
-          required
-          placeholder="Fireaway"
-          className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-        />
+      <div className="flex items-end gap-3">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label className="text-xs font-bold text-body">Brand name</label>
+          <input
+            name="name"
+            type="text"
+            required
+            placeholder="e.g. Fireaway"
+            className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
+          />
+        </div>
+        <SubmitButton />
       </div>
-      {state.error && <p className="text-sm text-red-700">{state.error}</p>}
-      {state.success && <p className="text-sm text-green-700">Brand added.</p>}
-      <SubmitButton />
+      {state.error && <p className="text-[13px] text-error">{state.error}</p>}
+      {state.success && <p className="text-[13px] text-success">Brand added.</p>}
     </form>
   );
 }

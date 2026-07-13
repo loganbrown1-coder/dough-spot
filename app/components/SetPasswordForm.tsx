@@ -12,7 +12,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-md bg-orange-600 px-4 py-2 font-medium text-white transition hover:bg-orange-700 disabled:opacity-60"
+      className="h-[42px] w-full rounded-brand bg-brand font-bold text-white transition hover:bg-brand-light disabled:opacity-60"
     >
       {pending ? "Saving..." : "Set password"}
     </button>
@@ -23,9 +23,9 @@ export default function SetPasswordForm() {
   const [state, formAction] = useActionState(setPasswordAction, initialState);
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-neutral-700">
+    <form action={formAction} className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="password" className="text-[13px] font-bold text-body">
           New password
         </label>
         <input
@@ -35,14 +35,11 @@ export default function SetPasswordForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
         />
       </div>
-      <div>
-        <label
-          htmlFor="confirmPassword"
-          className="block text-sm font-medium text-neutral-700"
-        >
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="confirmPassword" className="text-[13px] font-bold text-body">
           Confirm password
         </label>
         <input
@@ -52,11 +49,11 @@ export default function SetPasswordForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
         />
       </div>
       {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-brand border border-error-border bg-error-bg px-3 py-2.5 text-[13px] text-error">
           {state.error}
         </p>
       )}

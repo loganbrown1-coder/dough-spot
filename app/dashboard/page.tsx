@@ -28,24 +28,24 @@ export default async function DashboardPage({
     : [];
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="mx-auto w-full max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-neutral-900">Dashboard</h1>
+        <h1 className="text-2xl font-extrabold text-navy">Dashboard</h1>
         <Link
           href="/upload"
-          className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+          className="hidden h-10 items-center rounded-brand bg-brand px-5 text-sm font-bold text-white hover:bg-brand-light md:flex"
         >
           Upload photos
         </Link>
       </div>
 
       {sites.length === 0 ? (
-        <p className="rounded-md border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
+        <p className="rounded-brand border border-border-default bg-white p-6 text-sm text-secondary">
           No sites are assigned to your account yet. Contact an admin.
         </p>
       ) : (
         <>
-          <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="mb-6 rounded-brand border border-border-default bg-white p-5">
             <DashboardFilters
               sites={sites}
               brands={brands}
@@ -54,7 +54,7 @@ export default async function DashboardPage({
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-3">
             {dayParts.map((dayPart) => (
               <DayPartCard
                 key={dayPart.id}

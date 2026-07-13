@@ -26,14 +26,14 @@ export default function DashboardFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <div>
-        <label className="block text-xs font-medium text-neutral-500">Site</label>
+    <div className="flex flex-wrap gap-5">
+      <div className="flex max-w-[340px] flex-1 flex-col gap-1.5">
+        <label className="text-[13px] font-bold text-body">Site</label>
         {sites.length > 1 ? (
           <select
             value={selectedSiteId}
             onChange={(e) => updateParams({ site: e.target.value })}
-            className="mt-1 rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           >
             {groups.map((group) => (
               <optgroup key={group.brandName} label={group.brandName}>
@@ -46,13 +46,13 @@ export default function DashboardFilters({
             ))}
           </select>
         ) : (
-          <p className="mt-1 rounded-md border border-transparent px-3 py-2 text-sm font-medium text-neutral-800">
+          <p className="flex h-10 items-center text-sm font-semibold text-body">
             {sites[0]?.name ?? "No site assigned"}
           </p>
         )}
       </div>
-      <div>
-        <label htmlFor="date" className="block text-xs font-medium text-neutral-500">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="date" className="text-[13px] font-bold text-body">
           Date
         </label>
         <input
@@ -60,7 +60,7 @@ export default function DashboardFilters({
           type="date"
           value={selectedDate}
           onChange={(e) => updateParams({ date: e.target.value })}
-          className="mt-1 rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
         />
       </div>
     </div>

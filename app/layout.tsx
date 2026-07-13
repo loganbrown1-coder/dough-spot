@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import Nav from "@/app/components/Nav";
+import MobileTabBar from "@/app/components/MobileTabBar";
+import { getCurrentUser } from "@/lib/auth";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -18,19 +16,19 @@ export const metadata: Metadata = {
   description: "Dough Spot - multi-site photo capture dashboard",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <Nav />
-        <main className="flex flex-1 flex-col">{children}</main>
+    <html lang="en" className={`${manrope.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col font-sans">
+        <Nav user={user} />
+        <main className="flex flex-1 flex-col pb-14 md:pb-0">{children}</main>
+        <MobileTabBar user={user} />
       </body>
     </html>
   );

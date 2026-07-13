@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireUser, sitesInScope } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
 import { listDayParts } from "@/lib/data/dayParts";
@@ -26,26 +25,22 @@ export default async function UploadPage({
   const defaultDate = params.date || todayStr();
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">Upload photos</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Replaces the daily PDF and email step. Uploading three photos for a
-            site, date, and day part replaces any photos already there.
-          </p>
-        </div>
-        <Link href="/dashboard" className="text-sm text-orange-600 hover:underline">
-          View dashboard
-        </Link>
+    <div className="mx-auto w-full max-w-3xl px-8 py-8">
+      <div className="mb-6 flex flex-col gap-1.5">
+        <h1 className="text-2xl font-extrabold text-navy">Upload photos</h1>
+        <p className="text-sm leading-relaxed text-secondary">
+          Replaces the old process of building a PDF and emailing it to ops —
+          upload straight from site instead. New photos replace any existing
+          ones for the same site, date and shift.
+        </p>
       </div>
 
       {sites.length === 0 ? (
-        <p className="rounded-md border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
+        <p className="rounded-brand border border-border-default bg-white p-6 text-sm text-secondary">
           No sites are assigned to your account yet. Contact an admin.
         </p>
       ) : (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+        <div className="rounded-brand border border-border-default bg-white p-6">
           <UploadForm
             sites={sites}
             brands={brands}
