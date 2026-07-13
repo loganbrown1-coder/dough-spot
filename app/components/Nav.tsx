@@ -20,12 +20,17 @@ export default function Nav({ user }: { user: Profile | null }) {
   return (
     <header className="bg-navy">
       {/* Desktop */}
-      <div className="mx-auto hidden max-w-6xl items-center justify-between px-8 py-0 lg:flex lg:h-16">
+      <div className="mx-auto hidden max-w-6xl items-center justify-between px-8 py-2.5 lg:flex">
         <div className="flex items-center gap-9">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <LogoMark className="h-[26px] w-[26px]" />
-            <span className="text-base font-extrabold tracking-tight text-white">
-              Dough Spot
+            <span className="flex flex-col leading-none">
+              <span className="text-base font-extrabold tracking-wide text-white">
+                DOUGH SPOT
+              </span>
+              <span className="text-[10px] font-semibold text-white/50">
+                Powered by OpSpot
+              </span>
             </span>
           </Link>
           <NavLinks showAdmin={showAdmin} />
@@ -48,7 +53,7 @@ export default function Nav({ user }: { user: Profile | null }) {
       <div className="flex items-center justify-between px-4 py-3.5 lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
           <LogoMark className="h-[22px] w-[22px]" />
-          <span className="text-sm font-extrabold text-white">Dough Spot</span>
+          <span className="text-sm font-extrabold tracking-wide text-white">DOUGH SPOT</span>
         </Link>
         <form action={logoutAction}>
           <button

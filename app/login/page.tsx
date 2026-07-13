@@ -14,10 +14,10 @@ export default async function LoginPage() {
           <div className="flex flex-col items-center gap-3 text-center">
             <LogoMark className="h-11 w-11" />
             <div>
-              <h1 className="text-[22px] font-extrabold tracking-tight text-navy">
-                Dough Spot
+              <h1 className="text-[22px] font-extrabold tracking-wide text-navy">
+                DOUGH SPOT
               </h1>
-              <p className="text-xs font-semibold text-muted">by OpSpot</p>
+              <p className="text-xs font-semibold text-muted">Powered by OpSpot</p>
             </div>
             <p className="text-sm leading-snug text-secondary">
               Sign in to view or upload site photos
