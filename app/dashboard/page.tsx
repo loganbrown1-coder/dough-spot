@@ -33,7 +33,7 @@ export default async function DashboardPage({
         <h1 className="text-2xl font-extrabold text-navy">Dashboard</h1>
         <Link
           href="/upload"
-          className="hidden h-10 items-center rounded-brand bg-brand px-5 text-sm font-bold text-white hover:bg-brand-light md:flex"
+          className="hidden h-10 items-center rounded-brand bg-brand px-5 text-sm font-bold text-white hover:bg-brand-light lg:flex"
         >
           Upload photos
         </Link>

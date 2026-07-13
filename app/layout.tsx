@@ -27,7 +27,7 @@ export default async function RootLayout({
     <html lang="en" className={`${manrope.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
         <Nav user={user} />
-        <main className="flex flex-1 flex-col pb-14 md:pb-0">{children}</main>
+        <main className="flex flex-1 flex-col pb-14 lg:pb-0">{children}</main>
         <MobileTabBar user={user} />
       </body>
     </html>

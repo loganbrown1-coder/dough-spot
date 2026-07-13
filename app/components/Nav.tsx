@@ -20,7 +20,7 @@ export default function Nav({ user }: { user: Profile | null }) {
   return (
     <header className="bg-navy">
       {/* Desktop */}
-      <div className="mx-auto hidden max-w-6xl items-center justify-between px-8 py-0 md:flex md:h-16">
+      <div className="mx-auto hidden max-w-6xl items-center justify-between px-8 py-0 lg:flex lg:h-16">
         <div className="flex items-center gap-9">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <LogoMark className="h-[26px] w-[26px]" />
@@ -45,7 +45,7 @@ export default function Nav({ user }: { user: Profile | null }) {
       </div>
 
       {/* Mobile */}
-      <div className="flex items-center justify-between px-4 py-3.5 md:hidden">
+      <div className="flex items-center justify-between px-4 py-3.5 lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
           <LogoMark className="h-[22px] w-[22px]" />
           <span className="text-sm font-extrabold text-white">Dough Spot</span>
