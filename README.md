@@ -1,4 +1,4 @@
-# Cut Cam Dashboard
+# Dough Spot
 
 A multi-tenant dashboard for viewing daily site photos by organisation,
 brand, site, date, and day part, plus a manual upload page that replaces

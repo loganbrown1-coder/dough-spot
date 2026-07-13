@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const globalForSupabase = globalThis as unknown as {
-  __cutcamSupabaseAdmin?: SupabaseClient;
+  __doughSpotSupabaseAdmin?: SupabaseClient;
 };
 
 /**
@@ -13,8 +13,8 @@ const globalForSupabase = globalThis as unknown as {
  * RLS applies.
  */
 export function getSupabaseAdmin(): SupabaseClient {
-  if (globalForSupabase.__cutcamSupabaseAdmin) {
-    return globalForSupabase.__cutcamSupabaseAdmin;
+  if (globalForSupabase.__doughSpotSupabaseAdmin) {
+    return globalForSupabase.__doughSpotSupabaseAdmin;
   }
 
   const url = process.env.SUPABASE_URL;
@@ -30,6 +30,6 @@ export function getSupabaseAdmin(): SupabaseClient {
     auth: { persistSession: false },
   });
 
-  globalForSupabase.__cutcamSupabaseAdmin = client;
+  globalForSupabase.__doughSpotSupabaseAdmin = client;
   return client;
 }

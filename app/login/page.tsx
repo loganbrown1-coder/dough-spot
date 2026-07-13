@@ -10,7 +10,7 @@ export default async function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-neutral-900">Cut Cam</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Dough Spot</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Sign in to view or upload site photos
           </p>

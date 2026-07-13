@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cut Cam",
-  description: "Cut Cam dashboard - Fireaway pizza photo capture",
+  title: "Dough Spot",
+  description: "Dough Spot - multi-site photo capture dashboard",
 };
 
 export default function RootLayout({
