@@ -1,0 +1,91 @@
+import { createClient } from "@/lib/db/supabase-server";
+import type { Capture, CaptureSource } from "@/types";
+
+function rowToCapture(row: {
+  id: string;
+  site_id: string;
+  date: string;
+  day_part_id: string;
+  sequence: number;
+  image_url: string;
+  captured_at: string;
+  source: string;
+}): Capture {
+  return {
+    id: row.id,
+    siteId: row.site_id,
+    date: row.date,
+    dayPartId: row.day_part_id,
+    sequence: row.sequence,
+    imageUrl: row.image_url,
+    capturedAt: row.captured_at,
+    source: row.source as CaptureSource,
+  };
+}
+
+export async function listCaptures(params: {
+  siteId: string;
+  date: string;
+}): Promise<Capture[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("captures")
+    .select("*")
+    .eq("site_id", params.siteId)
+    .eq("date", params.date)
+    .order("day_part_id")
+    .order("sequence");
+  if (error) throw error;
+  return (data ?? []).map(rowToCapture);
+}
+
+export interface NewCaptureImage {
+  sequence: number;
+  imageUrl: string;
+  source: CaptureSource;
+}
+
+/**
+ * Replaces all captures for a given site/date/day part. This mirrors the
+ * behaviour of the old manual process, where a re-upload for a day part
+ * fully replaces the previous set of three photos. Runs through the
+ * user-scoped client, so the `captures_insert`/`captures_delete` row level
+ * security policies re-check that the caller's role/scope actually covers
+ * this site - the same rule the sites dropdown was built from, now
+ * enforced again at the database layer.
+ */
+export async function replaceCaptures(params: {
+  siteId: string;
+  date: string;
+  dayPartId: string;
+  images: NewCaptureImage[];
+}): Promise<Capture[]> {
+  const supabase = await createClient();
+  const capturedAt = new Date().toISOString();
+
+  const { error: deleteError } = await supabase
+    .from("captures")
+    .delete()
+    .eq("site_id", params.siteId)
+    .eq("date", params.date)
+    .eq("day_part_id", params.dayPartId);
+  if (deleteError) throw deleteError;
+
+  const rows = params.images.map((image) => ({
+    site_id: params.siteId,
+    date: params.date,
+    day_part_id: params.dayPartId,
+    sequence: image.sequence,
+    image_url: image.imageUrl,
+    captured_at: capturedAt,
+    source: image.source,
+  }));
+
+  const { data, error: insertError } = await supabase
+    .from("captures")
+    .insert(rows)
+    .select("*");
+  if (insertError) throw insertError;
+
+  return (data ?? []).map(rowToCapture);
+}
