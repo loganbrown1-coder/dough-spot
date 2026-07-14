@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation } from "@/lib/data/organisations";
 import { createBrand, getBrand } from "@/lib/data/brands";
 import { createSite, getSite } from "@/lib/data/sites";
+import { createMenuItem } from "@/lib/data/menuItems";
 import type { Role } from "@/types";
 
 export interface AdminFormState {
@@ -111,6 +112,55 @@ export async function createSiteAction(
   }
 
   await createSite(brandId, name);
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+export async function createMenuItemAction(
+  _prevState: AdminFormState,
+  formData: FormData
+): Promise<AdminFormState> {
+  const actor = await requireOrgAdmin();
+
+  const brandId = String(formData.get("brandId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const photo = formData.get("referenceImage");
+
+  if (!brandId || !name) {
+    return { error: "Brand and menu item name are required." };
+  }
+  if (!(photo instanceof File) || photo.size === 0) {
+    return { error: "A reference photo is required." };
+  }
+  if (!photo.type.startsWith("image/")) {
+    return { error: "The reference photo must be an image." };
+  }
+
+  const brand = await getBrand(brandId);
+  if (!brand) return { error: "Unknown brand." };
+  if (actor.role === "org_admin" && brand.organisationId !== actor.organisationId) {
+    return { error: "You can only add menu items to your own organisation." };
+  }
+
+  const admin = getSupabaseAdmin();
+  const parts = photo.name.split(".");
+  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg";
+  const objectPath = `${brandId}/${crypto.randomUUID()}.${ext}`;
+  const buffer = Buffer.from(await photo.arrayBuffer());
+
+  const { error: uploadError } = await admin.storage
+    .from("menu-items")
+    .upload(objectPath, buffer, { contentType: photo.type });
+  if (uploadError) return { error: `Photo upload failed: ${uploadError.message}` };
+
+  const { data: publicUrl } = admin.storage.from("menu-items").getPublicUrl(objectPath);
+
+  await createMenuItem({
+    brandId,
+    name,
+    referenceImageUrl: publicUrl.publicUrl,
+  });
+
   revalidatePath("/admin");
   return { success: true };
 }

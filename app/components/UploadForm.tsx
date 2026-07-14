@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import { uploadCapturesAction, type UploadState } from "@/lib/actions/captures";
 import { compressImage } from "@/lib/compressImage";
 import { groupSitesByBrand } from "@/lib/siteGroups";
-import type { Brand, DayPart, Site } from "@/types";
+import type { Brand, DayPart, MenuItem, Site } from "@/types";
 
 function formatSize(bytes: number): string {
   return bytes < 1024 * 1024
@@ -28,7 +28,7 @@ function SubmitButton() {
   );
 }
 
-function PhotoDropzone({ n }: { n: number }) {
+function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
   const [status, setStatus] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,46 +54,66 @@ function PhotoDropzone({ n }: { n: number }) {
   }
 
   return (
-    <label
-      htmlFor={`photo${n}`}
-      className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center gap-2 rounded-brand border-[1.5px] border-dashed border-border-default bg-[#FAFBFC] px-3 py-7 text-center"
-    >
-      <span className="flex h-[34px] w-[34px] items-center justify-center rounded-brand bg-brand-bg text-brand">
-        ↑
-      </span>
-      <span className="text-[13px] font-bold text-body">Photo {n}</span>
-      <span className="max-w-full truncate text-xs text-secondary">
-        {status ?? "Choose file"}
-      </span>
-      <input
-        ref={inputRef}
-        id={`photo${n}`}
-        name={`photo${n}`}
-        type="file"
-        accept="image/*"
-        required
-        className="sr-only"
-        onChange={handleChange}
-      />
-    </label>
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={`photo${n}`}
+        className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center gap-2 rounded-brand border-[1.5px] border-dashed border-border-default bg-[#FAFBFC] px-3 py-7 text-center"
+      >
+        <span className="flex h-[34px] w-[34px] items-center justify-center rounded-brand bg-brand-bg text-brand">
+          ↑
+        </span>
+        <span className="text-[13px] font-bold text-body">Photo {n}</span>
+        <span className="max-w-full truncate text-xs text-secondary">
+          {status ?? "Choose file"}
+        </span>
+        <input
+          ref={inputRef}
+          id={`photo${n}`}
+          name={`photo${n}`}
+          type="file"
+          accept="image/*"
+          required
+          className="sr-only"
+          onChange={handleChange}
+        />
+      </label>
+      <select
+        name={`menuItem${n}`}
+        defaultValue=""
+        className="h-9 rounded-brand border border-border-default px-2.5 text-xs text-body"
+      >
+        <option value="">No menu item</option>
+        {menuItems.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
 export default function UploadForm({
   sites,
   brands,
+  menuItems,
   dayParts,
   defaultSiteId,
   defaultDate,
 }: {
   sites: Site[];
   brands: Brand[];
+  menuItems: MenuItem[];
   dayParts: DayPart[];
   defaultSiteId?: string;
   defaultDate: string;
 }) {
   const [state, formAction] = useActionState(uploadCapturesAction, initialState);
   const groups = groupSitesByBrand(sites, brands);
+  const [selectedSiteId, setSelectedSiteId] = useState(defaultSiteId ?? sites[0]?.id);
+
+  const selectedBrandId = sites.find((s) => s.id === selectedSiteId)?.brandId;
+  const availableMenuItems = menuItems.filter((m) => m.brandId === selectedBrandId);
 
   return (
     <form action={formAction} className="flex flex-col gap-5" key={state.success ? "reset" : "form"}>
@@ -105,7 +125,8 @@ export default function UploadForm({
           <select
             id="siteId"
             name="siteId"
-            defaultValue={defaultSiteId}
+            value={selectedSiteId}
+            onChange={(e) => setSelectedSiteId(e.target.value)}
             required
             className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           >
@@ -154,7 +175,7 @@ export default function UploadForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[1, 2, 3].map((n) => (
-          <PhotoDropzone key={n} n={n} />
+          <PhotoDropzone key={n} n={n} menuItems={availableMenuItems} />
         ))}
       </div>
 

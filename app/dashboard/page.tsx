@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser, sitesInScope } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
+import { listMenuItems } from "@/lib/data/menuItems";
 import { listDayParts } from "@/lib/data/dayParts";
 import { listCaptures } from "@/lib/data/captures";
 import { todayStr } from "@/lib/date";
@@ -15,7 +16,12 @@ export default async function DashboardPage({
   await requireUser();
   const params = await searchParams;
 
-  const [sites, brands] = await Promise.all([sitesInScope(), listBrands()]);
+  const [sites, brands, menuItems] = await Promise.all([
+    sitesInScope(),
+    listBrands(),
+    listMenuItems(),
+  ]);
+  const menuItemNameById = new Map(menuItems.map((m) => [m.id, m.name]));
   const selectedSiteId =
     params.site && sites.some((s) => s.id === params.site)
       ? params.site
@@ -60,6 +66,7 @@ export default async function DashboardPage({
                 key={dayPart.id}
                 dayPart={dayPart}
                 captures={captures.filter((c) => c.dayPartId === dayPart.id)}
+                menuItemNameById={menuItemNameById}
               />
             ))}
           </div>

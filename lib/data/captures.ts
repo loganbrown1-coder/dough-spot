@@ -10,6 +10,8 @@ function rowToCapture(row: {
   image_url: string;
   captured_at: string;
   source: string;
+  menu_item_id: string | null;
+  rating: number | null;
 }): Capture {
   return {
     id: row.id,
@@ -20,6 +22,8 @@ function rowToCapture(row: {
     imageUrl: row.image_url,
     capturedAt: row.captured_at,
     source: row.source as CaptureSource,
+    menuItemId: row.menu_item_id,
+    rating: row.rating,
   };
 }
 
@@ -43,6 +47,7 @@ export interface NewCaptureImage {
   sequence: number;
   imageUrl: string;
   source: CaptureSource;
+  menuItemId?: string | null;
 }
 
 /**
@@ -79,6 +84,7 @@ export async function replaceCaptures(params: {
     image_url: image.imageUrl,
     captured_at: capturedAt,
     source: image.source,
+    menu_item_id: image.menuItemId ?? null,
   }));
 
   const { data, error: insertError } = await supabase
@@ -88,4 +94,21 @@ export async function replaceCaptures(params: {
   if (insertError) throw insertError;
 
   return (data ?? []).map(rowToCapture);
+}
+
+/**
+ * Sets or clears the star rating (1-5, or null to clear) on a single
+ * capture. Anyone who can see the capture can rate it - enforced by the
+ * `captures_update` row level security policy, not an app-level check.
+ */
+export async function updateCaptureRating(
+  captureId: string,
+  rating: number | null
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .update({ rating })
+    .eq("id", captureId);
+  if (error) throw error;
 }

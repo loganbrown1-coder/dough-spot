@@ -2,7 +2,11 @@
 
 import { getCurrentUser, canAccessSite } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
-import { replaceCaptures, type NewCaptureImage } from "@/lib/data/captures";
+import {
+  replaceCaptures,
+  updateCaptureRating,
+  type NewCaptureImage,
+} from "@/lib/data/captures";
 
 export interface UploadState {
   error?: string;
@@ -50,6 +54,7 @@ export async function uploadCapturesAction(
   }
 
   const files: File[] = [];
+  const menuItemIds: (string | null)[] = [];
   for (const key of ["photo1", "photo2", "photo3"]) {
     const file = formData.get(key);
     if (!(file instanceof File) || file.size === 0) {
@@ -59,6 +64,8 @@ export async function uploadCapturesAction(
       return { error: "All three files must be images." };
     }
     files.push(file);
+    const menuItemId = String(formData.get(`menuItem${files.length}`) ?? "");
+    menuItemIds.push(menuItemId || null);
   }
 
   const supabase = getSupabaseAdmin();
@@ -95,10 +102,35 @@ export async function uploadCapturesAction(
       sequence,
       imageUrl: publicUrl.publicUrl,
       source: "manual",
+      menuItemId: menuItemIds[i],
     });
   }
 
   await replaceCaptures({ siteId, date, dayPartId, images });
 
   return { success: true };
+}
+
+/**
+ * Sets (or, passing null, clears) the star rating on a single photo.
+ * Authorization is enforced entirely by the `captures_update` row level
+ * security policy - anyone whose scope covers the photo can rate it,
+ * matching who can already see it on the dashboard.
+ */
+export async function rateCaptureAction(
+  captureId: string,
+  rating: number | null
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in to rate photos." };
+  if (rating !== null && (rating < 1 || rating > 5)) {
+    return { error: "Rating must be between 1 and 5." };
+  }
+
+  try {
+    await updateCaptureRating(captureId, rating);
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to save rating." };
+  }
 }

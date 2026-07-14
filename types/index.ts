@@ -25,6 +25,14 @@ export interface DayPart {
   endTime: string; // 'HH:MM'
 }
 
+export interface MenuItem {
+  id: string;
+  brandId: string;
+  name: string;
+  referenceImageUrl: string | null;
+  createdAt: string;
+}
+
 export interface Capture {
   id: string;
   siteId: string;
@@ -34,6 +42,8 @@ export interface Capture {
   imageUrl: string;
   capturedAt: string; // ISO timestamp
   source: CaptureSource;
+  menuItemId: string | null;
+  rating: number | null; // 1-5
 }
 
 /**

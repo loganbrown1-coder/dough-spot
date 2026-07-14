@@ -1,16 +1,14 @@
+import CaptureTile from "@/app/components/CaptureTile";
 import type { Capture, DayPart } from "@/types";
-
-const HATCH = {
-  backgroundImage:
-    "repeating-linear-gradient(45deg, #EDEFF2 0 8px, #E3E7EB 8px 16px)",
-};
 
 export default function DayPartCard({
   dayPart,
   captures,
+  menuItemNameById,
 }: {
   dayPart: DayPart;
   captures: Capture[];
+  menuItemNameById: Map<string, string>;
 }) {
   const bySequence = new Map(captures.map((c) => [c.sequence, c]));
   const hasAny = captures.length > 0;
@@ -35,20 +33,17 @@ export default function DayPartCard({
               {[1, 2, 3].map((sequence) => {
                 const capture = bySequence.get(sequence);
                 return (
-                  <div
+                  <CaptureTile
                     key={sequence}
-                    className="aspect-square overflow-hidden rounded-brand"
-                    style={capture ? undefined : HATCH}
-                  >
-                    {capture && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={capture.imageUrl}
-                        alt={`${dayPart.label} photo ${sequence}`}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
+                    capture={capture}
+                    sequence={sequence}
+                    dayPartLabel={dayPart.label}
+                    menuItemName={
+                      capture?.menuItemId
+                        ? menuItemNameById.get(capture.menuItemId)
+                        : undefined
+                    }
+                  />
                 );
               })}
             </div>

@@ -1,5 +1,6 @@
 import { requireUser, sitesInScope } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
+import { listMenuItems } from "@/lib/data/menuItems";
 import { listDayParts } from "@/lib/data/dayParts";
 import { todayStr } from "@/lib/date";
 import UploadForm from "@/app/components/UploadForm";
@@ -12,9 +13,10 @@ export default async function UploadPage({
   await requireUser();
   const params = await searchParams;
 
-  const [sites, brands, dayParts] = await Promise.all([
+  const [sites, brands, menuItems, dayParts] = await Promise.all([
     sitesInScope(),
     listBrands(),
+    listMenuItems(),
     listDayParts(),
   ]);
 
@@ -44,6 +46,7 @@ export default async function UploadPage({
           <UploadForm
             sites={sites}
             brands={brands}
+            menuItems={menuItems}
             dayParts={dayParts}
             defaultSiteId={defaultSiteId}
             defaultDate={defaultDate}

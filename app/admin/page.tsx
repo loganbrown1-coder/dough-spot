@@ -3,11 +3,13 @@ import { listOrganisations, getOrganisation } from "@/lib/data/organisations";
 import { listBrandsByOrganisation } from "@/lib/data/brands";
 import { listSites } from "@/lib/data/sites";
 import { listProfiles } from "@/lib/data/profiles";
+import { listMenuItems } from "@/lib/data/menuItems";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import CreateOrganisationForm from "@/app/components/CreateOrganisationForm";
 import OrgSwitcher from "@/app/components/OrgSwitcher";
 import AddBrandForm from "@/app/components/AddBrandForm";
 import AddSiteForm from "@/app/components/AddSiteForm";
+import AddMenuItemForm from "@/app/components/AddMenuItemForm";
 import InviteUserForm from "@/app/components/InviteUserForm";
 
 function SectionCard({
@@ -100,15 +102,17 @@ export default async function AdminPage({
 
   const selectedOrg = isSuperAdmin ? await getOrganisation(selectedOrgId) : null;
 
-  const [brands, allSites, allProfiles] = await Promise.all([
+  const [brands, allSites, allProfiles, allMenuItems] = await Promise.all([
     listBrandsByOrganisation(selectedOrgId),
     listSites(),
     listProfiles(),
+    listMenuItems(),
   ]);
 
   const brandIds = new Set(brands.map((b) => b.id));
   const sites = allSites.filter((s) => brandIds.has(s.brandId));
   const siteIds = new Set(sites.map((s) => s.id));
+  const menuItems = allMenuItems.filter((m) => brandIds.has(m.brandId));
   const profiles = allProfiles.filter(
     (p) =>
       p.organisationId === selectedOrgId ||
@@ -153,6 +157,14 @@ export default async function AdminPage({
           )}
         </SectionCard>
 
+        <SectionCard title="Add a menu item">
+          {brands.length === 0 ? (
+            <p className="text-[13px] text-secondary">Add a brand first.</p>
+          ) : (
+            <AddMenuItemForm brands={brands} />
+          )}
+        </SectionCard>
+
         <SectionCard title="Invite a user">
           <InviteUserForm
             organisationId={selectedOrgId}
@@ -164,6 +176,47 @@ export default async function AdminPage({
       </div>
 
       <div className="flex flex-col gap-4">
+        <div className="overflow-hidden rounded-brand border border-border-default bg-white">
+          <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
+            Menu items
+          </div>
+          {menuItems.length === 0 ? (
+            <p className="px-5 py-4 text-[13px] text-secondary">No menu items yet.</p>
+          ) : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="text-left font-bold text-muted">
+                  <th className="px-5 py-2.5">Photo</th>
+                  <th className="px-5 py-2.5">Name</th>
+                  <th className="px-5 py-2.5">Brand</th>
+                </tr>
+              </thead>
+              <tbody>
+                {menuItems.map((item) => (
+                  <tr key={item.id} className="border-t border-border-subtle">
+                    <td className="px-5 py-2.5">
+                      {item.referenceImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.referenceImageUrl}
+                          alt={item.name}
+                          className="h-10 w-10 rounded-brand object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-brand bg-app" />
+                      )}
+                    </td>
+                    <td className="px-5 py-2.5 text-body">{item.name}</td>
+                    <td className="px-5 py-2.5 text-secondary">
+                      {brandNameById.get(item.brandId) ?? "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
         <DataTable
           title="Brands"
           columns={["Name", "Sites"]}

@@ -36,6 +36,14 @@ create table if not exists day_parts (
   end_time text not null
 );
 
+create table if not exists menu_items (
+  id uuid primary key default gen_random_uuid(),
+  brand_id uuid not null references brands(id) on delete cascade,
+  name text not null,
+  reference_image_url text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists captures (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references sites(id) on delete cascade,
@@ -45,6 +53,8 @@ create table if not exists captures (
   image_url text not null,
   captured_at timestamptz not null default now(),
   source text not null default 'manual',
+  menu_item_id uuid references menu_items(id),
+  rating smallint check (rating is null or rating between 1 and 5),
   unique (site_id, date, day_part_id, sequence)
 );
 
@@ -65,6 +75,7 @@ create table if not exists profiles (
 );
 
 create index if not exists idx_brands_org on brands(organisation_id);
+create index if not exists idx_menu_items_brand on menu_items(brand_id);
 create index if not exists idx_sites_brand on sites(brand_id);
 create index if not exists idx_captures_lookup on captures(site_id, date, day_part_id);
 create index if not exists idx_profiles_org on profiles(organisation_id);
@@ -107,8 +118,28 @@ $$;
 
 grant execute on function public.accessible_site_ids() to authenticated;
 
+-- Every brand the current user can see. Same shape as
+-- accessible_site_ids() - org_admin/super_admin see it via organisation
+-- scope, ops via their own brand_id, site_manager via the brand their
+-- one site belongs to.
+create or replace function public.accessible_brand_ids()
+returns setof uuid
+language sql security definer stable set search_path = public as $$
+  select b.id
+  from brands b
+  where (select role from current_profile()) = 'super_admin'
+     or b.organisation_id = (select organisation_id from current_profile())
+     or b.id = (select brand_id from current_profile())
+     or b.id in (
+       select s.brand_id from sites s where s.id = (select site_id from current_profile())
+     )
+$$;
+
+grant execute on function public.accessible_brand_ids() to authenticated;
+
 alter table organisations enable row level security;
 alter table brands enable row level security;
+alter table menu_items enable row level security;
 alter table sites enable row level security;
 alter table day_parts enable row level security;
 alter table captures enable row level security;
@@ -129,8 +160,7 @@ create policy "organisations_update" on organisations for update using (
 -- brands: readable by anyone in that organisation; only super_admin or
 -- that org's own org_admin can create/edit brands.
 create policy "brands_select" on brands for select using (
-  (select role from current_profile()) = 'super_admin'
-  or organisation_id = (select organisation_id from current_profile())
+  id in (select accessible_brand_ids())
 );
 create policy "brands_insert" on brands for insert with check (
   (select role from current_profile()) = 'super_admin'
@@ -144,6 +174,21 @@ create policy "brands_update" on brands for update using (
   or (
     (select role from current_profile()) = 'org_admin'
     and organisation_id = (select organisation_id from current_profile())
+  )
+);
+
+-- menu_items: readable by anyone in that brand's scope; only super_admin
+-- or that org's own org_admin can add menu items (admin-page only).
+create policy "menu_items_select" on menu_items for select using (
+  brand_id in (select accessible_brand_ids())
+);
+create policy "menu_items_insert" on menu_items for insert with check (
+  (select role from current_profile()) = 'super_admin'
+  or (
+    (select role from current_profile()) = 'org_admin'
+    and brand_id in (
+      select id from brands where organisation_id = (select organisation_id from current_profile())
+    )
   )
 );
 
@@ -187,6 +232,9 @@ create policy "captures_insert" on captures for insert with check (
 create policy "captures_delete" on captures for delete using (
   site_id in (select accessible_site_ids())
 );
+create policy "captures_update" on captures for update using (
+  site_id in (select accessible_site_ids())
+);
 
 -- profiles: a user can always read their own row; org_admin can read
 -- everyone in their org; super_admin can read everyone. Writes are only
@@ -214,4 +262,9 @@ create policy "profiles_select" on profiles for select using (
 -- <img src> URLs.
 insert into storage.buckets (id, name, public)
 values ('captures', 'captures', true)
+on conflict (id) do nothing;
+
+-- Public storage bucket for menu item reference photos.
+insert into storage.buckets (id, name, public)
+values ('menu-items', 'menu-items', true)
 on conflict (id) do nothing;
