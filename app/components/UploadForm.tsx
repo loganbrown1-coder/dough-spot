@@ -1,10 +1,17 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { uploadCapturesAction, type UploadState } from "@/lib/actions/captures";
+import { compressImage } from "@/lib/compressImage";
 import { groupSitesByBrand } from "@/lib/siteGroups";
 import type { Brand, DayPart, Site } from "@/types";
+
+function formatSize(bytes: number): string {
+  return bytes < 1024 * 1024
+    ? `${Math.round(bytes / 1024)} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const initialState: UploadState = {};
 
@@ -22,7 +29,29 @@ function SubmitButton() {
 }
 
 function PhotoDropzone({ n }: { n: number }) {
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setStatus(null);
+      return;
+    }
+
+    setStatus("Compressing…");
+    try {
+      const compressed = await compressImage(file);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(compressed);
+      if (inputRef.current) inputRef.current.files = dataTransfer.files;
+      setStatus(`${compressed.name} (${formatSize(compressed.size)})`);
+    } catch {
+      // If compression fails for any reason, fall back to the original
+      // file the browser already put in input.files - upload can proceed.
+      setStatus(`${file.name} (${formatSize(file.size)})`);
+    }
+  }
 
   return (
     <label
@@ -34,16 +63,17 @@ function PhotoDropzone({ n }: { n: number }) {
       </span>
       <span className="text-[13px] font-bold text-body">Photo {n}</span>
       <span className="max-w-full truncate text-xs text-secondary">
-        {fileName ?? "Choose file"}
+        {status ?? "Choose file"}
       </span>
       <input
+        ref={inputRef}
         id={`photo${n}`}
         name={`photo${n}`}
         type="file"
         accept="image/*"
         required
         className="sr-only"
-        onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+        onChange={handleChange}
       />
     </label>
   );
