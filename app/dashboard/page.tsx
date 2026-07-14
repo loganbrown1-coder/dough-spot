@@ -3,42 +3,59 @@ import { requireUser, sitesInScope } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
 import { listMenuItems } from "@/lib/data/menuItems";
 import { listDayParts } from "@/lib/data/dayParts";
-import { listCaptures } from "@/lib/data/captures";
+import { listCapturesByDate } from "@/lib/data/captures";
 import { todayStr } from "@/lib/date";
+import { groupSitesByBrand } from "@/lib/siteGroups";
 import DashboardFilters from "@/app/components/DashboardFilters";
-import DayPartCard from "@/app/components/DayPartCard";
+import SiteSection from "@/app/components/SiteSection";
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; date?: string }>;
+  searchParams: Promise<{ site?: string; date?: string; dayPart?: string }>;
 }) {
   await requireUser();
   const params = await searchParams;
 
-  const [sites, brands, menuItems] = await Promise.all([
+  const [sites, brands, menuItems, allDayParts] = await Promise.all([
     sitesInScope(),
     listBrands(),
     listMenuItems(),
+    listDayParts(),
   ]);
   const menuItemNameById = new Map(menuItems.map((m) => [m.id, m.name]));
-  const selectedSiteId =
-    params.site && sites.some((s) => s.id === params.site)
-      ? params.site
-      : sites[0]?.id;
-  const selectedDate = params.date || todayStr();
 
-  const dayParts = await listDayParts();
-  const captures = selectedSiteId
-    ? await listCaptures({ siteId: selectedSiteId, date: selectedDate })
-    : [];
+  // Empty site param (the default) means "every site" - an overview -
+  // rather than always jumping straight into one site.
+  const selectedSiteId =
+    params.site && sites.some((s) => s.id === params.site) ? params.site : "";
+  const selectedDate = params.date || todayStr();
+  const selectedDayPartId =
+    params.dayPart && allDayParts.some((dp) => dp.id === params.dayPart)
+      ? params.dayPart
+      : "";
+  const visibleDayParts = selectedDayPartId
+    ? allDayParts.filter((dp) => dp.id === selectedDayPartId)
+    : allDayParts;
+
+  const captures = await listCapturesByDate(selectedDate);
+  const capturesBySite = new Map<string, typeof captures>();
+  for (const capture of captures) {
+    const existing = capturesBySite.get(capture.siteId);
+    if (existing) existing.push(capture);
+    else capturesBySite.set(capture.siteId, [capture]);
+  }
+
+  const uploadHref = selectedSiteId
+    ? `/upload?site=${selectedSiteId}&date=${selectedDate}`
+    : "/upload";
 
   return (
     <div className="mx-auto w-full max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-navy">Dashboard</h1>
         <Link
-          href="/upload"
+          href={uploadHref}
           className="hidden h-10 items-center rounded-brand bg-brand px-5 text-sm font-bold text-white hover:bg-brand-light lg:flex"
         >
           Upload photos
@@ -55,21 +72,42 @@ export default async function DashboardPage({
             <DashboardFilters
               sites={sites}
               brands={brands}
+              dayParts={allDayParts}
               selectedSiteId={selectedSiteId}
               selectedDate={selectedDate}
+              selectedDayPartId={selectedDayPartId}
             />
           </div>
 
-          <div className="grid gap-5 md:grid-cols-3">
-            {dayParts.map((dayPart) => (
-              <DayPartCard
-                key={dayPart.id}
-                dayPart={dayPart}
-                captures={captures.filter((c) => c.dayPartId === dayPart.id)}
-                menuItemNameById={menuItemNameById}
-              />
-            ))}
-          </div>
+          {selectedSiteId ? (
+            <SiteSection
+              site={sites.find((s) => s.id === selectedSiteId)!}
+              dayParts={visibleDayParts}
+              captures={capturesBySite.get(selectedSiteId) ?? []}
+              date={selectedDate}
+              menuItemNameById={menuItemNameById}
+              linkToFilter={false}
+            />
+          ) : (
+            <div className="flex flex-col gap-8">
+              {groupSitesByBrand(sites, brands).map((group) => (
+                <div key={group.brandName} className="flex flex-col gap-5">
+                  <h2 className="text-lg font-extrabold text-navy">{group.brandName}</h2>
+                  {group.sites.map((site) => (
+                    <SiteSection
+                      key={site.id}
+                      site={site}
+                      dayParts={visibleDayParts}
+                      captures={capturesBySite.get(site.id) ?? []}
+                      date={selectedDate}
+                      menuItemNameById={menuItemNameById}
+                      linkToFilter
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

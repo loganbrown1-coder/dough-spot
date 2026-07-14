@@ -43,6 +43,26 @@ export async function listCaptures(params: {
   return (data ?? []).map(rowToCapture);
 }
 
+/**
+ * Every capture for a given date across every site the caller can see -
+ * not filtered to one site. Row level security (`captures_select`) is
+ * what actually scopes this to sites in the caller's access, so this is
+ * safe to call without a siteId; it just returns fewer rows for a
+ * site_manager than for an org_admin.
+ */
+export async function listCapturesByDate(date: string): Promise<Capture[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("captures")
+    .select("*")
+    .eq("date", date)
+    .order("site_id")
+    .order("day_part_id")
+    .order("sequence");
+  if (error) throw error;
+  return (data ?? []).map(rowToCapture);
+}
+
 export interface NewCaptureImage {
   sequence: number;
   imageUrl: string;
