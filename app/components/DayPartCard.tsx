@@ -1,25 +1,33 @@
 import CaptureTile from "@/app/components/CaptureTile";
-import type { Capture, DayPart } from "@/types";
+import ClearDayPartButton from "@/app/components/ClearDayPartButton";
+import type { Capture, DayPart, MenuItem } from "@/types";
 
 export default function DayPartCard({
+  siteId,
+  date,
   dayPart,
   captures,
-  menuItemNameById,
+  menuItems,
 }: {
+  siteId: string;
+  date: string;
   dayPart: DayPart;
   captures: Capture[];
-  menuItemNameById: Map<string, string>;
+  menuItems: MenuItem[];
 }) {
   const bySequence = new Map(captures.map((c) => [c.sequence, c]));
   const hasAny = captures.length > 0;
 
   return (
     <div className="rounded-brand border border-border-default bg-white">
-      <div className="flex flex-col gap-0.5 border-b border-border-default border-l-[3px] border-l-brand px-5 py-3">
-        <h3 className="text-sm font-bold text-navy">{dayPart.label}</h3>
-        <span className="text-xs text-muted">
-          {dayPart.startTime} - {dayPart.endTime}
-        </span>
+      <div className="flex items-center justify-between gap-2 border-b border-border-default border-l-[3px] border-l-brand px-5 py-3">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-sm font-bold text-navy">{dayPart.label}</h3>
+          <span className="text-xs text-muted">
+            {dayPart.startTime} - {dayPart.endTime}
+          </span>
+        </div>
+        {hasAny && <ClearDayPartButton siteId={siteId} date={date} dayPartId={dayPart.id} />}
       </div>
 
       <div className="p-5">
@@ -38,11 +46,10 @@ export default function DayPartCard({
                     capture={capture}
                     sequence={sequence}
                     dayPartLabel={dayPart.label}
-                    menuItemName={
-                      capture?.menuItemId
-                        ? menuItemNameById.get(capture.menuItemId)
-                        : undefined
-                    }
+                    siteId={siteId}
+                    date={date}
+                    dayPartId={dayPart.id}
+                    menuItems={menuItems}
                   />
                 );
               })}

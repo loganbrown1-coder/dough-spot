@@ -5,6 +5,10 @@ import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import {
   replaceCaptures,
   updateCaptureRating,
+  updateCaptureMenuItem,
+  updateCaptureImage,
+  deleteCapture,
+  deleteCapturesForDayPart,
   type NewCaptureImage,
 } from "@/lib/data/captures";
 
@@ -27,6 +31,26 @@ function extensionFor(file: File): string {
   const parts = file.name.split(".");
   const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "";
   return ext || "jpg";
+}
+
+/** Recovers the storage object path from a `captures` bucket public URL. */
+function objectPathFromPublicUrl(imageUrl: string): string | null {
+  const marker = `/object/public/${BUCKET}/`;
+  const idx = imageUrl.indexOf(marker);
+  if (idx === -1) return null;
+  const path = imageUrl.slice(idx + marker.length).split("?")[0];
+  return decodeURIComponent(path);
+}
+
+/**
+ * Uploads reuse the same object path (site/date/day part/sequence) every
+ * time a photo is replaced, so the public URL never changes on its own -
+ * browsers and Supabase's CDN (`cache-control: public, max-age=3600`) will
+ * keep serving the old image against that URL otherwise. Appending a
+ * version query param forces a fresh fetch.
+ */
+function withCacheBust(url: string): string {
+  return `${url}?v=${Date.now()}`;
 }
 
 export async function uploadCapturesAction(
@@ -100,7 +124,7 @@ export async function uploadCapturesAction(
 
     images.push({
       sequence,
-      imageUrl: publicUrl.publicUrl,
+      imageUrl: withCacheBust(publicUrl.publicUrl),
       source: "manual",
       menuItemId: menuItemIds[i],
     });
@@ -133,4 +157,119 @@ export async function rateCaptureAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to save rating." };
   }
+}
+
+/** Retags an already-uploaded photo with a different menu item (or clears it). */
+export async function updateCaptureMenuItemAction(
+  captureId: string,
+  menuItemId: string | null
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+
+  try {
+    await updateCaptureMenuItem(captureId, menuItemId);
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update menu item." };
+  }
+}
+
+/**
+ * Replaces the image behind an existing capture in place, keeping its
+ * sequence slot and menu item tag. Mirrors uploadCapturesAction's
+ * storage-write pattern for a single photo instead of all three.
+ */
+export async function replaceCaptureImageAction(
+  captureId: string,
+  siteId: string,
+  date: string,
+  dayPartId: string,
+  sequence: number,
+  file: File
+): Promise<{ error?: string; imageUrl?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!(await canAccessSite(siteId))) {
+    return { error: "You do not have access to that site." };
+  }
+  if (!file.type.startsWith("image/")) return { error: "File must be an image." };
+
+  const admin = getSupabaseAdmin();
+  const folder = `${siteId}/${date}/${dayPartId}`;
+
+  // The replacement may use a different extension than what's already
+  // there, so clear anything at this sequence before writing the new file.
+  const { data: existing } = await admin.storage.from(BUCKET).list(folder);
+  const stale = (existing ?? []).filter((f) => f.name.startsWith(`${sequence}.`));
+  if (stale.length > 0) {
+    await admin.storage.from(BUCKET).remove(stale.map((f) => `${folder}/${f.name}`));
+  }
+
+  const ext = extensionFor(file);
+  const objectPath = `${folder}/${sequence}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error: uploadError } = await admin.storage
+    .from(BUCKET)
+    .upload(objectPath, buffer, { contentType: file.type, upsert: true });
+  if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+
+  const { data: publicUrl } = admin.storage.from(BUCKET).getPublicUrl(objectPath);
+  const imageUrl = withCacheBust(publicUrl.publicUrl);
+
+  try {
+    await updateCaptureImage(captureId, imageUrl);
+    return { imageUrl };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to save photo." };
+  }
+}
+
+/** Deletes a single photo, including its storage object. */
+export async function deleteCaptureAction(
+  captureId: string,
+  imageUrl: string
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+
+  try {
+    await deleteCapture(captureId);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to delete photo." };
+  }
+
+  const path = objectPathFromPublicUrl(imageUrl);
+  if (path) {
+    await getSupabaseAdmin().storage.from(BUCKET).remove([path]);
+  }
+  return {};
+}
+
+/** Clears every photo in a day part at once - e.g. an upload to the wrong shift. */
+export async function deleteDayPartCapturesAction(
+  siteId: string,
+  date: string,
+  dayPartId: string
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!(await canAccessSite(siteId))) {
+    return { error: "You do not have access to that site." };
+  }
+
+  try {
+    await deleteCapturesForDayPart({ siteId, date, dayPartId });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to clear day part." };
+  }
+
+  const admin = getSupabaseAdmin();
+  const folder = `${siteId}/${date}/${dayPartId}`;
+  const { data: existing } = await admin.storage.from(BUCKET).list(folder);
+  if (existing && existing.length > 0) {
+    await admin.storage.from(BUCKET).remove(existing.map((f) => `${folder}/${f.name}`));
+  }
+  return {};
 }

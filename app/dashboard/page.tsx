@@ -23,8 +23,6 @@ export default async function DashboardPage({
     listMenuItems(),
     listDayParts(),
   ]);
-  const menuItemNameById = new Map(menuItems.map((m) => [m.id, m.name]));
-
   // Empty site param (the default) means "every site" - an overview -
   // rather than always jumping straight into one site.
   const selectedSiteId =
@@ -85,7 +83,7 @@ export default async function DashboardPage({
               dayParts={visibleDayParts}
               captures={capturesBySite.get(selectedSiteId) ?? []}
               date={selectedDate}
-              menuItemNameById={menuItemNameById}
+              menuItems={menuItems}
               linkToFilter={false}
             />
           ) : (
@@ -100,7 +98,7 @@ export default async function DashboardPage({
                       dayParts={visibleDayParts}
                       captures={capturesBySite.get(site.id) ?? []}
                       date={selectedDate}
-                      menuItemNameById={menuItemNameById}
+                      menuItems={menuItems}
                       linkToFilter
                     />
                   ))}

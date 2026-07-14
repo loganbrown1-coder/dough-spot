@@ -132,3 +132,55 @@ export async function updateCaptureRating(
     .eq("id", captureId);
   if (error) throw error;
 }
+
+/** Retags a single capture with a different menu item, or clears it. */
+export async function updateCaptureMenuItem(
+  captureId: string,
+  menuItemId: string | null
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .update({ menu_item_id: menuItemId })
+    .eq("id", captureId);
+  if (error) throw error;
+}
+
+/** Points a capture at a newly-uploaded replacement image. */
+export async function updateCaptureImage(
+  captureId: string,
+  imageUrl: string
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .update({ image_url: imageUrl, captured_at: new Date().toISOString() })
+    .eq("id", captureId);
+  if (error) throw error;
+}
+
+/**
+ * Deletes a single capture row. Scoped by the `captures_delete` row level
+ * security policy, the same one `replaceCaptures` relies on.
+ */
+export async function deleteCapture(captureId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("captures").delete().eq("id", captureId);
+  if (error) throw error;
+}
+
+/** Wipes every capture for a site/date/day part - the "clear all" case. */
+export async function deleteCapturesForDayPart(params: {
+  siteId: string;
+  date: string;
+  dayPartId: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .delete()
+    .eq("site_id", params.siteId)
+    .eq("date", params.date)
+    .eq("day_part_id", params.dayPartId);
+  if (error) throw error;
+}
