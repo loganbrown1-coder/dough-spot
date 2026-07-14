@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { rateCaptureAction } from "@/lib/actions/captures";
 import type { Capture } from "@/types";
 
@@ -37,6 +37,47 @@ function StarRating({ captureId, rating }: { captureId: string; rating: number |
   );
 }
 
+function Lightbox({
+  imageUrl,
+  alt,
+  onClose,
+}: {
+  imageUrl: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-5 top-5 text-2xl font-bold text-white/80 hover:text-white"
+      >
+        ×
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt={alt}
+        className="max-h-full max-w-full rounded-brand object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 export default function CaptureTile({
   capture,
   sequence,
@@ -48,6 +89,8 @@ export default function CaptureTile({
   dayPartLabel: string;
   menuItemName?: string;
 }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
   if (!capture) {
     return (
       <div
@@ -60,20 +103,34 @@ export default function CaptureTile({
     );
   }
 
+  const alt = `${dayPartLabel} photo ${sequence}`;
+
   return (
     <div className="flex flex-col gap-1">
-      <div className="aspect-square overflow-hidden rounded-brand">
+      <button
+        type="button"
+        onClick={() => setLightboxOpen(true)}
+        className="aspect-square cursor-zoom-in overflow-hidden rounded-brand"
+        aria-label={`View ${alt} larger`}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={capture.imageUrl}
-          alt={`${dayPartLabel} photo ${sequence}`}
-          className="h-full w-full object-cover"
+          alt={alt}
+          className="h-full w-full object-cover transition hover:opacity-90"
         />
-      </div>
+      </button>
       <p className="truncate text-[11px] font-semibold text-body">
         {menuItemName ?? <span className="text-muted">No menu item</span>}
       </p>
       <StarRating captureId={capture.id} rating={capture.rating} />
+      {lightboxOpen && (
+        <Lightbox
+          imageUrl={capture.imageUrl}
+          alt={alt}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -30,7 +30,9 @@ function SubmitButton() {
 
 function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
   const [status, setStatus] = useState<string | null>(null);
+  const [menuItemId, setMenuItemId] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectedMenuItem = menuItems.find((m) => m.id === menuItemId);
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -79,7 +81,8 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
       </label>
       <select
         name={`menuItem${n}`}
-        defaultValue=""
+        value={menuItemId}
+        onChange={(e) => setMenuItemId(e.target.value)}
         className="h-9 rounded-brand border border-border-default px-2.5 text-xs text-body"
       >
         <option value="">No menu item</option>
@@ -89,6 +92,19 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
           </option>
         ))}
       </select>
+      {selectedMenuItem?.referenceImageUrl && (
+        <div className="flex items-center gap-2 rounded-brand border border-border-default bg-app p-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={selectedMenuItem.referenceImageUrl}
+            alt={`Reference: ${selectedMenuItem.name}`}
+            className="h-10 w-10 rounded-brand object-cover"
+          />
+          <span className="text-[11px] text-secondary">
+            Reference for <span className="font-semibold text-body">{selectedMenuItem.name}</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
