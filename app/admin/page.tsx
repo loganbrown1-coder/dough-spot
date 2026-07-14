@@ -11,6 +11,7 @@ import AddBrandForm from "@/app/components/AddBrandForm";
 import AddSiteForm from "@/app/components/AddSiteForm";
 import AddMenuItemForm from "@/app/components/AddMenuItemForm";
 import InviteUserForm from "@/app/components/InviteUserForm";
+import AdminTabs, { type AdminTab } from "@/app/components/AdminTabs";
 
 function SectionCard({
   title,
@@ -33,41 +34,47 @@ function DataTable({
   title,
   columns,
   rows,
+  emptyMessage,
 }: {
   title: string;
   columns: string[];
   rows: string[][];
+  emptyMessage: string;
 }) {
   return (
     <div className="overflow-hidden rounded-brand border border-border-default bg-white">
       <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
         {title}
       </div>
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr className="text-left font-bold text-muted">
-            {columns.map((col) => (
-              <th key={col} className="px-5 py-2.5">
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-t border-border-subtle">
-              {row.map((cell, j) => (
-                <td
-                  key={j}
-                  className={`px-5 py-2.5 ${j === 0 ? "text-body" : "text-secondary"}`}
-                >
-                  {cell}
-                </td>
+      {rows.length === 0 ? (
+        <p className="px-5 py-4 text-[13px] text-secondary">{emptyMessage}</p>
+      ) : (
+        <table className="w-full border-collapse text-[13px]">
+          <thead>
+            <tr className="text-left font-bold text-muted">
+              {columns.map((col) => (
+                <th key={col} className="px-5 py-2.5">
+                  {col}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} className="border-t border-border-subtle">
+                {row.map((cell, j) => (
+                  <td
+                    key={j}
+                    className={`px-5 py-2.5 ${j === 0 ? "text-body" : "text-secondary"}`}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -123,9 +130,142 @@ export default async function AdminPage({
   const brandNameById = new Map(brands.map((b) => [b.id, b.name]));
   const siteNameById = new Map(sites.map((s) => [s.id, s.name]));
 
+  const tabs: AdminTab[] = [
+    {
+      id: "brands-sites",
+      label: "Brands & sites",
+      content: (
+        <>
+          <SectionCard title="Add a brand">
+            <AddBrandForm organisationId={selectedOrgId} />
+          </SectionCard>
+          <DataTable
+            title="Brands"
+            columns={["Name", "Sites"]}
+            emptyMessage="No brands yet."
+            rows={brands.map((b) => [
+              b.name,
+              String(sites.filter((s) => s.brandId === b.id).length),
+            ])}
+          />
+          <SectionCard title="Add a site">
+            {brands.length === 0 ? (
+              <p className="text-[13px] text-secondary">Add a brand first.</p>
+            ) : (
+              <AddSiteForm brands={brands} />
+            )}
+          </SectionCard>
+          <DataTable
+            title="Sites"
+            columns={["Name", "Brand"]}
+            emptyMessage="No sites yet."
+            rows={sites.map((s) => [s.name, brandNameById.get(s.brandId) ?? "-"])}
+          />
+        </>
+      ),
+    },
+    {
+      id: "menu-items",
+      label: "Menu items",
+      content: (
+        <>
+          <SectionCard title="Add a menu item">
+            {brands.length === 0 ? (
+              <p className="text-[13px] text-secondary">Add a brand first.</p>
+            ) : (
+              <AddMenuItemForm brands={brands} />
+            )}
+          </SectionCard>
+          <div className="overflow-hidden rounded-brand border border-border-default bg-white">
+            <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
+              Menu items
+            </div>
+            {menuItems.length === 0 ? (
+              <p className="px-5 py-4 text-[13px] text-secondary">No menu items yet.</p>
+            ) : (
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="text-left font-bold text-muted">
+                    <th className="px-5 py-2.5">Photo</th>
+                    <th className="px-5 py-2.5">Name</th>
+                    <th className="px-5 py-2.5">Brand</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {menuItems.map((item) => (
+                    <tr key={item.id} className="border-t border-border-subtle">
+                      <td className="px-5 py-2.5">
+                        {item.referenceImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.referenceImageUrl}
+                            alt={item.name}
+                            className="h-10 w-10 rounded-brand object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-brand bg-app" />
+                        )}
+                      </td>
+                      <td className="px-5 py-2.5 text-body">{item.name}</td>
+                      <td className="px-5 py-2.5 text-secondary">
+                        {brandNameById.get(item.brandId) ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      ),
+    },
+    {
+      id: "users",
+      label: "Users",
+      content: (
+        <>
+          <SectionCard title="Invite a user">
+            <InviteUserForm
+              organisationId={selectedOrgId}
+              brands={brands}
+              sites={sites}
+              canInviteSuperAdmin={isSuperAdmin}
+            />
+          </SectionCard>
+          <DataTable
+            title="Users"
+            columns={["Email", "Role", "Scope"]}
+            emptyMessage="No users yet."
+            rows={profiles.map((p) => [
+              p.email,
+              ROLE_LABELS[p.role],
+              p.role === "org_admin"
+                ? "Whole organisation"
+                : (p.siteId ? siteNameById.get(p.siteId) : undefined) ??
+                  (p.brandId ? brandNameById.get(p.brandId) : undefined) ??
+                  "-",
+            ])}
+          />
+        </>
+      ),
+    },
+  ];
+
+  if (isSuperAdmin) {
+    tabs.push({
+      id: "organisations",
+      label: "Organisations",
+      content: (
+        <SectionCard title="Create a new organisation">
+          <CreateOrganisationForm />
+        </SectionCard>
+      ),
+    });
+  }
+
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-4xl px-8 py-8">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-navy">Admin</h1>
         {isSuperAdmin && organisations.length > 1 && (
           <OrgSwitcher organisations={organisations} selectedOrgId={selectedOrgId} />
@@ -133,119 +273,12 @@ export default async function AdminPage({
       </div>
 
       {isSuperAdmin && (
-        <SectionCard title="Create a new organisation">
-          <CreateOrganisationForm />
-        </SectionCard>
-      )}
-
-      {isSuperAdmin && (
-        <p className="text-sm text-secondary">
+        <p className="mb-6 text-sm text-secondary">
           Managing <span className="font-semibold text-body">{selectedOrg?.name}</span>
         </p>
       )}
 
-      <div className="flex flex-col gap-4">
-        <SectionCard title="Add a brand">
-          <AddBrandForm organisationId={selectedOrgId} />
-        </SectionCard>
-
-        <SectionCard title="Add a site">
-          {brands.length === 0 ? (
-            <p className="text-[13px] text-secondary">Add a brand first.</p>
-          ) : (
-            <AddSiteForm brands={brands} />
-          )}
-        </SectionCard>
-
-        <SectionCard title="Add a menu item">
-          {brands.length === 0 ? (
-            <p className="text-[13px] text-secondary">Add a brand first.</p>
-          ) : (
-            <AddMenuItemForm brands={brands} />
-          )}
-        </SectionCard>
-
-        <SectionCard title="Invite a user">
-          <InviteUserForm
-            organisationId={selectedOrgId}
-            brands={brands}
-            sites={sites}
-            canInviteSuperAdmin={isSuperAdmin}
-          />
-        </SectionCard>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <div className="overflow-hidden rounded-brand border border-border-default bg-white">
-          <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
-            Menu items
-          </div>
-          {menuItems.length === 0 ? (
-            <p className="px-5 py-4 text-[13px] text-secondary">No menu items yet.</p>
-          ) : (
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="text-left font-bold text-muted">
-                  <th className="px-5 py-2.5">Photo</th>
-                  <th className="px-5 py-2.5">Name</th>
-                  <th className="px-5 py-2.5">Brand</th>
-                </tr>
-              </thead>
-              <tbody>
-                {menuItems.map((item) => (
-                  <tr key={item.id} className="border-t border-border-subtle">
-                    <td className="px-5 py-2.5">
-                      {item.referenceImageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.referenceImageUrl}
-                          alt={item.name}
-                          className="h-10 w-10 rounded-brand object-cover"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-brand bg-app" />
-                      )}
-                    </td>
-                    <td className="px-5 py-2.5 text-body">{item.name}</td>
-                    <td className="px-5 py-2.5 text-secondary">
-                      {brandNameById.get(item.brandId) ?? "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        <DataTable
-          title="Brands"
-          columns={["Name", "Sites"]}
-          rows={brands.map((b) => [
-            b.name,
-            String(sites.filter((s) => s.brandId === b.id).length),
-          ])}
-        />
-
-        <DataTable
-          title="Sites"
-          columns={["Name", "Brand"]}
-          rows={sites.map((s) => [s.name, brandNameById.get(s.brandId) ?? "-"])}
-        />
-
-        <DataTable
-          title="Users"
-          columns={["Email", "Role", "Scope"]}
-          rows={profiles.map((p) => [
-            p.email,
-            ROLE_LABELS[p.role],
-            p.role === "org_admin"
-              ? "Whole organisation"
-              : (p.siteId ? siteNameById.get(p.siteId) : undefined) ??
-                (p.brandId ? brandNameById.get(p.brandId) : undefined) ??
-                "-",
-          ])}
-        />
-      </div>
+      <AdminTabs tabs={tabs} />
     </div>
   );
 }
