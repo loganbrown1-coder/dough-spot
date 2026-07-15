@@ -1,4 +1,4 @@
-import { requireUser, sitesInScope } from "@/lib/auth";
+import { requireUploader, sitesInScope } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
 import { listMenuItems } from "@/lib/data/menuItems";
 import { listDayParts } from "@/lib/data/dayParts";
@@ -10,7 +10,7 @@ export default async function UploadPage({
 }: {
   searchParams: Promise<{ site?: string; date?: string }>;
 }) {
-  await requireUser();
+  const user = await requireUploader();
   const params = await searchParams;
 
   const [sites, brands, menuItems, dayParts] = await Promise.all([
@@ -50,6 +50,7 @@ export default async function UploadPage({
             dayParts={dayParts}
             defaultSiteId={defaultSiteId}
             defaultDate={defaultDate}
+            viewerRole={user.role}
           />
         </div>
       )}

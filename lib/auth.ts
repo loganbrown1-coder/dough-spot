@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/supabase-server";
 import { getProfileById } from "@/lib/data/profiles";
-import type { Profile, Site } from "@/types";
+import type { Profile, Role, Site } from "@/types";
 
 export async function getCurrentUser(): Promise<Profile | null> {
   try {
@@ -26,20 +26,26 @@ export async function requireUser(): Promise<Profile> {
   return user;
 }
 
-/** org_admin or super_admin - i.e. anyone allowed on the /admin page. */
-export async function requireOrgAdmin(): Promise<Profile> {
-  const user = await requireUser();
-  if (user.role !== "org_admin" && user.role !== "super_admin") {
-    redirect("/dashboard");
-  }
-  return user;
-}
-
-/** super_admin only - cross-organisation management. */
+/** super_admin only - the /admin page, and every other structure change. */
 export async function requireSuperAdmin(): Promise<Profile> {
   const user = await requireUser();
   if (user.role !== "super_admin") redirect("/dashboard");
   return user;
+}
+
+/**
+ * agent or super_admin - OpSpot's own accounts, the only ones allowed to
+ * upload, replace, delete, or rate photos. A customer (ops/site_manager)
+ * gets redirected to the dashboard instead of the upload page.
+ */
+export async function requireUploader(): Promise<Profile> {
+  const user = await requireUser();
+  if (!canManageCaptures(user.role)) redirect("/dashboard");
+  return user;
+}
+
+export function canManageCaptures(role: Role): boolean {
+  return role === "agent" || role === "super_admin";
 }
 
 /**

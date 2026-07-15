@@ -7,10 +7,11 @@ import type { Brand, Role, Site } from "@/types";
 
 const initialState: AdminFormState = {};
 
-const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "site_manager", label: "Site Manager" },
-  { value: "ops", label: "Area / Ops Manager" },
-  { value: "org_admin", label: "Company Admin" },
+const ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
+  { value: "site_manager", label: "Site Manager", hint: "Customer - views one site" },
+  { value: "ops", label: "Ops Manager", hint: "Customer - views every site under a brand" },
+  { value: "agent", label: "OpSpot Agent", hint: "OpSpot - uploads and rates for any customer" },
+  { value: "super_admin", label: "OpSpot Admin", hint: "OpSpot - full admin access" },
 ];
 
 function SubmitButton() {
@@ -27,22 +28,17 @@ function SubmitButton() {
 }
 
 export default function InviteUserForm({
-  organisationId,
   brands,
   sites,
-  canInviteSuperAdmin,
 }: {
-  organisationId: string;
   brands: Brand[];
   sites: Site[];
-  canInviteSuperAdmin: boolean;
 }) {
   const [state, formAction] = useActionState(inviteUserAction, initialState);
   const [role, setRole] = useState<Role>("site_manager");
 
   return (
     <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
-      <input type="hidden" name="organisationId" value={organisationId} />
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="flex flex-1 flex-col gap-1.5">
           <label className="text-xs font-bold text-body">Email</label>
@@ -67,8 +63,10 @@ export default function InviteUserForm({
                 {opt.label}
               </option>
             ))}
-            {canInviteSuperAdmin && <option value="super_admin">Super Admin</option>}
           </select>
+          <span className="text-[11px] text-muted">
+            {ROLE_OPTIONS.find((opt) => opt.value === role)?.hint}
+          </span>
         </div>
       </div>
 

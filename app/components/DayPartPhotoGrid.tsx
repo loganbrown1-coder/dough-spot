@@ -4,7 +4,7 @@ import { useState } from "react";
 import CaptureTile from "@/app/components/CaptureTile";
 import ClearDayPartButton from "@/app/components/ClearDayPartButton";
 import Lightbox from "@/app/components/Lightbox";
-import type { Capture, MenuItem } from "@/types";
+import type { Capture, MenuItem, Role } from "@/types";
 
 export default function DayPartPhotoGrid({
   siteId,
@@ -14,6 +14,7 @@ export default function DayPartPhotoGrid({
   captures,
   menuItems,
   readOnly,
+  viewerRole,
   onChanged,
 }: {
   siteId: string;
@@ -23,6 +24,7 @@ export default function DayPartPhotoGrid({
   captures: Capture[];
   menuItems: MenuItem[];
   readOnly: boolean;
+  viewerRole: Role;
   onChanged?: () => void;
 }) {
   const bySequence = new Map(captures.map((c) => [c.sequence, c]));
@@ -66,6 +68,7 @@ export default function DayPartPhotoGrid({
                 dayPartId={dayPartId}
                 menuItems={menuItems}
                 readOnly={readOnly}
+                viewerRole={viewerRole}
                 onOpen={setOpenSequence}
                 onChanged={onChanged}
               />

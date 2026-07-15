@@ -1,17 +1,21 @@
 "use server";
 
-import { getCurrentUser, canAccessSite } from "@/lib/auth";
+import { getCurrentUser, canAccessSite, canManageCaptures } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import {
   listCaptures,
   replaceCaptures,
   updateCaptureRating,
+  updateCaptureMenuItem,
   updateCaptureImage,
   deleteCapture,
   deleteCapturesForDayPart,
+  flagCapture,
+  resolveFlag,
   type NewCaptureImage,
 } from "@/lib/data/captures";
-import type { Capture } from "@/types";
+import { logCaptureEvent, listCaptureEvents } from "@/lib/data/captureEvents";
+import type { Capture, CaptureEvent } from "@/types";
 
 export interface UploadState {
   error?: string;
@@ -54,12 +58,27 @@ function withCacheBust(url: string): string {
   return `${url}?v=${Date.now()}`;
 }
 
+/**
+ * Audit logging is best-effort - a logging failure should never block the
+ * upload/edit/delete it's describing.
+ */
+async function logEvent(params: Parameters<typeof logCaptureEvent>[0]): Promise<void> {
+  try {
+    await logCaptureEvent(params);
+  } catch (err) {
+    console.error("Failed to log capture event:", err);
+  }
+}
+
 export async function uploadCapturesAction(
   _prevState: UploadState,
   formData: FormData
 ): Promise<UploadState> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in to upload photos." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can upload photos." };
+  }
 
   const siteId = String(formData.get("siteId") ?? "");
   const date = String(formData.get("date") ?? "");
@@ -131,16 +150,28 @@ export async function uploadCapturesAction(
     });
   }
 
-  await replaceCaptures({ siteId, date, dayPartId, images });
+  const saved = await replaceCaptures({ siteId, date, dayPartId, images });
+
+  for (const capture of saved) {
+    await logEvent({
+      siteId,
+      date,
+      dayPartId,
+      sequence: capture.sequence,
+      captureId: capture.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "upload",
+    });
+  }
 
   return { success: true };
 }
 
 /**
  * Sets (or, passing null, clears) the star rating on a single photo.
- * Authorization is enforced entirely by the `captures_update` row level
- * security policy - anyone whose scope covers the photo can rate it,
- * matching who can already see it on the dashboard.
+ * Only an agent or admin sets a rating - a customer sees it but can't
+ * change it (they can flag it instead, see flagCaptureAction).
  */
 export async function rateCaptureAction(
   captureId: string,
@@ -148,6 +179,9 @@ export async function rateCaptureAction(
 ): Promise<{ error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in to rate photos." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can rate photos." };
+  }
   if (rating !== null && (rating < 1 || rating > 5)) {
     return { error: "Rating must be between 1 and 5." };
   }
@@ -157,6 +191,25 @@ export async function rateCaptureAction(
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to save rating." };
+  }
+}
+
+/** Retags an already-uploaded photo with a different menu item (or clears it). */
+export async function updateCaptureMenuItemAction(
+  captureId: string,
+  menuItemId: string | null
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can retag a photo." };
+  }
+
+  try {
+    await updateCaptureMenuItem(captureId, menuItemId);
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update menu item." };
   }
 }
 
@@ -199,6 +252,9 @@ export async function replaceCaptureImageAction(
 ): Promise<{ error?: string; imageUrl?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can replace a photo." };
+  }
   if (!(await canAccessSite(siteId))) {
     return { error: "You do not have access to that site." };
   }
@@ -229,6 +285,16 @@ export async function replaceCaptureImageAction(
 
   try {
     await updateCaptureImage(captureId, imageUrl);
+    await logEvent({
+      siteId,
+      date,
+      dayPartId,
+      sequence,
+      captureId,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "replace",
+    });
     return { imageUrl };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to save photo." };
@@ -238,10 +304,17 @@ export async function replaceCaptureImageAction(
 /** Deletes a single photo, including its storage object. */
 export async function deleteCaptureAction(
   captureId: string,
-  imageUrl: string
+  imageUrl: string,
+  siteId: string,
+  date: string,
+  dayPartId: string,
+  sequence: number
 ): Promise<{ error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can delete a photo." };
+  }
 
   try {
     await deleteCapture(captureId);
@@ -253,6 +326,18 @@ export async function deleteCaptureAction(
   if (path) {
     await getSupabaseAdmin().storage.from(BUCKET).remove([path]);
   }
+
+  await logEvent({
+    siteId,
+    date,
+    dayPartId,
+    sequence,
+    captureId,
+    actorId: user.id,
+    actorEmail: user.email,
+    action: "delete",
+  });
+
   return {};
 }
 
@@ -264,9 +349,16 @@ export async function deleteDayPartCapturesAction(
 ): Promise<{ error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can clear a day part." };
+  }
   if (!(await canAccessSite(siteId))) {
     return { error: "You do not have access to that site." };
   }
+
+  const existingCaptures = (await listCaptures({ siteId, date })).filter(
+    (c) => c.dayPartId === dayPartId
+  );
 
   try {
     await deleteCapturesForDayPart({ siteId, date, dayPartId });
@@ -280,5 +372,108 @@ export async function deleteDayPartCapturesAction(
   if (existing && existing.length > 0) {
     await admin.storage.from(BUCKET).remove(existing.map((f) => `${folder}/${f.name}`));
   }
+
+  for (const capture of existingCaptures) {
+    await logEvent({
+      siteId,
+      date,
+      dayPartId,
+      sequence: capture.sequence,
+      captureId: capture.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "clear_day_part",
+    });
+  }
+
   return {};
+}
+
+/**
+ * A customer (ops/site_manager) flags a photo with a note - e.g. it was
+ * tagged as the wrong menu item - for an agent to review. Open to anyone
+ * who can see the capture, not just customer roles.
+ */
+export async function flagCaptureAction(
+  captureId: string,
+  siteId: string,
+  date: string,
+  dayPartId: string,
+  sequence: number,
+  comment: string
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!comment.trim()) return { error: "Add a note about what's wrong." };
+
+  try {
+    await flagCapture(captureId, comment.trim(), user.id);
+    await logEvent({
+      siteId,
+      date,
+      dayPartId,
+      sequence,
+      captureId,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "flag",
+      detail: comment.trim(),
+    });
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to flag photo." };
+  }
+}
+
+/** The activity log for one site/date - the admin "Activity" tab. */
+export async function getCaptureEventsAction(
+  siteId: string,
+  date: string
+): Promise<{ events: CaptureEvent[]; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { events: [], error: "You must be signed in." };
+  if (user.role !== "super_admin") {
+    return { events: [], error: "Only OpSpot admins can view the activity log." };
+  }
+
+  try {
+    return { events: await listCaptureEvents({ siteId, date }) };
+  } catch (err) {
+    return {
+      events: [],
+      error: err instanceof Error ? err.message : "Failed to load activity.",
+    };
+  }
+}
+
+/** An agent/admin clears a flag once they've reviewed and fixed it. */
+export async function resolveFlagAction(
+  captureId: string,
+  siteId: string,
+  date: string,
+  dayPartId: string,
+  sequence: number
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can resolve a flag." };
+  }
+
+  try {
+    await resolveFlag(captureId);
+    await logEvent({
+      siteId,
+      date,
+      dayPartId,
+      sequence,
+      captureId,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "resolve_flag",
+    });
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to resolve flag." };
+  }
 }

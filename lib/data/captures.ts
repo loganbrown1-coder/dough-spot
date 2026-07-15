@@ -12,6 +12,10 @@ function rowToCapture(row: {
   source: string;
   menu_item_id: string | null;
   rating: number | null;
+  flagged: boolean;
+  flag_comment: string | null;
+  flagged_by: string | null;
+  flagged_at: string | null;
 }): Capture {
   return {
     id: row.id,
@@ -24,6 +28,10 @@ function rowToCapture(row: {
     source: row.source as CaptureSource,
     menuItemId: row.menu_item_id,
     rating: row.rating,
+    flagged: row.flagged,
+    flagComment: row.flag_comment,
+    flaggedBy: row.flagged_by,
+    flaggedAt: row.flagged_at,
   };
 }
 
@@ -133,6 +141,19 @@ export async function updateCaptureRating(
   if (error) throw error;
 }
 
+/** Retags a single capture with a different menu item, or clears it. */
+export async function updateCaptureMenuItem(
+  captureId: string,
+  menuItemId: string | null
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .update({ menu_item_id: menuItemId })
+    .eq("id", captureId);
+  if (error) throw error;
+}
+
 /** Points a capture at a newly-uploaded replacement image. */
 export async function updateCaptureImage(
   captureId: string,
@@ -169,5 +190,38 @@ export async function deleteCapturesForDayPart(params: {
     .eq("site_id", params.siteId)
     .eq("date", params.date)
     .eq("day_part_id", params.dayPartId);
+  if (error) throw error;
+}
+
+/**
+ * Flags a photo with a note for an agent to review - e.g. it was tagged
+ * as the wrong menu item. Anyone who can see the capture can flag it
+ * (`captures_update` row level security), not just customer roles.
+ */
+export async function flagCapture(
+  captureId: string,
+  comment: string,
+  flaggedBy: string
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .update({
+      flagged: true,
+      flag_comment: comment,
+      flagged_by: flaggedBy,
+      flagged_at: new Date().toISOString(),
+    })
+    .eq("id", captureId);
+  if (error) throw error;
+}
+
+/** Clears a flag once it's been reviewed. */
+export async function resolveFlag(captureId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("captures")
+    .update({ flagged: false, flag_comment: null, flagged_by: null, flagged_at: null })
+    .eq("id", captureId);
   if (error) throw error;
 }

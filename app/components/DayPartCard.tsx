@@ -1,5 +1,5 @@
 import DayPartPhotoGrid from "@/app/components/DayPartPhotoGrid";
-import type { Capture, DayPart, MenuItem } from "@/types";
+import type { Capture, DayPart, MenuItem, Role } from "@/types";
 
 export default function DayPartCard({
   siteId,
@@ -7,12 +7,14 @@ export default function DayPartCard({
   dayPart,
   captures,
   menuItems,
+  viewerRole,
 }: {
   siteId: string;
   date: string;
   dayPart: DayPart;
   captures: Capture[];
   menuItems: MenuItem[];
+  viewerRole: Role;
 }) {
   return (
     <div className="rounded-brand border border-border-default bg-white">
@@ -32,6 +34,7 @@ export default function DayPartCard({
           captures={captures}
           menuItems={menuItems}
           readOnly
+          viewerRole={viewerRole}
         />
       </div>
     </div>

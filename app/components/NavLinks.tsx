@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function NavLinks({ showAdmin }: { showAdmin: boolean }) {
+export default function NavLinks({
+  showUpload,
+  showAdmin,
+}: {
+  showUpload: boolean;
+  showAdmin: boolean;
+}) {
   const pathname = usePathname();
 
   const links = [
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/upload", label: "Upload" },
+    ...(showUpload ? [{ href: "/upload", label: "Upload" }] : []),
     ...(showAdmin ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 

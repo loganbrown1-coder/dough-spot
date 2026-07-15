@@ -1,4 +1,4 @@
-export type Role = "super_admin" | "org_admin" | "ops" | "site_manager";
+export type Role = "super_admin" | "agent" | "ops" | "site_manager";
 export type CaptureSource = "manual" | "automated";
 
 export interface Organisation {
@@ -44,6 +44,33 @@ export interface Capture {
   source: CaptureSource;
   menuItemId: string | null;
   rating: number | null; // 1-5
+  flagged: boolean;
+  flagComment: string | null;
+  flaggedBy: string | null;
+  flaggedAt: string | null;
+}
+
+export type CaptureEventAction =
+  | "upload"
+  | "replace"
+  | "delete"
+  | "clear_day_part"
+  | "rate"
+  | "flag"
+  | "resolve_flag";
+
+export interface CaptureEvent {
+  id: string;
+  siteId: string;
+  date: string;
+  dayPartId: string;
+  sequence: number;
+  captureId: string | null;
+  actorId: string | null;
+  actorEmail: string;
+  action: CaptureEventAction;
+  detail: string | null;
+  createdAt: string;
 }
 
 /**
@@ -51,10 +78,13 @@ export interface Capture {
  * Authentication itself - password, sessions - is handled entirely by
  * Supabase Auth; this only carries the role and scope. Exactly one of
  * organisationId/brandId/siteId is set, depending on role:
- *   super_admin  -> all null (sees every organisation)
- *   org_admin    -> organisationId set (sees every brand/site in that org)
- *   ops          -> brandId set (sees every site under that brand)
- *   site_manager -> siteId set (sees that one site)
+ *   super_admin  -> all null (OpSpot's own admin, sees and manages everything)
+ *   agent        -> all null (OpSpot's own uploader - uploads/replaces/
+ *                   deletes/rates photos for any customer, no admin access)
+ *   ops          -> brandId set (customer, sees every site under that
+ *                   brand - view-only, plus can flag a photo)
+ *   site_manager -> siteId set (customer, sees that one site - view-only,
+ *                   plus can flag a photo)
  */
 export interface Profile {
   id: string;

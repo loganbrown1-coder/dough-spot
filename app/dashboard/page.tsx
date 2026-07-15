@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser, sitesInScope } from "@/lib/auth";
+import { requireUser, sitesInScope, canManageCaptures } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
 import { listMenuItems } from "@/lib/data/menuItems";
 import { listDayParts } from "@/lib/data/dayParts";
@@ -14,7 +14,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ site?: string; date?: string; dayPart?: string }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const params = await searchParams;
 
   const [sites, brands, menuItems, allDayParts] = await Promise.all([
@@ -52,12 +52,14 @@ export default async function DashboardPage({
     <div className="mx-auto w-full max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-navy">Dashboard</h1>
-        <Link
-          href={uploadHref}
-          className="hidden h-10 items-center rounded-brand bg-brand px-5 text-sm font-bold text-white hover:bg-brand-light lg:flex"
-        >
-          Upload photos
-        </Link>
+        {canManageCaptures(user.role) && (
+          <Link
+            href={uploadHref}
+            className="hidden h-10 items-center rounded-brand bg-brand px-5 text-sm font-bold text-white hover:bg-brand-light lg:flex"
+          >
+            Upload photos
+          </Link>
+        )}
       </div>
 
       {sites.length === 0 ? (
@@ -85,6 +87,7 @@ export default async function DashboardPage({
               date={selectedDate}
               menuItems={menuItems}
               linkToFilter={false}
+              viewerRole={user.role}
             />
           ) : (
             <div className="flex flex-col gap-8">
@@ -100,6 +103,7 @@ export default async function DashboardPage({
                       date={selectedDate}
                       menuItems={menuItems}
                       linkToFilter
+                      viewerRole={user.role}
                     />
                   ))}
                 </div>

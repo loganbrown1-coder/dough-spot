@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
+import { canManageCaptures } from "@/lib/auth";
 import LogoMark from "@/app/components/LogoMark";
 import NavLinks from "@/app/components/NavLinks";
 import { ROLE_LABELS } from "@/lib/roleLabels";
@@ -15,7 +16,8 @@ function initialsFor(email: string): string {
 export default function Nav({ user }: { user: Profile | null }) {
   if (!user) return null;
 
-  const showAdmin = user.role === "org_admin" || user.role === "super_admin";
+  const showAdmin = user.role === "super_admin";
+  const showUpload = canManageCaptures(user.role);
 
   return (
     <header className="bg-navy">
@@ -33,7 +35,7 @@ export default function Nav({ user }: { user: Profile | null }) {
               </span>
             </span>
           </Link>
-          <NavLinks showAdmin={showAdmin} />
+          <NavLinks showUpload={showUpload} showAdmin={showAdmin} />
         </div>
         <div className="flex items-center gap-3.5 text-sm">
           <span className="font-semibold text-white">{user.email}</span>

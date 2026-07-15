@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOrgAdmin, requireSuperAdmin } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
-import { createOrganisation, getOrganisation } from "@/lib/data/organisations";
+import { createOrganisation } from "@/lib/data/organisations";
 import { createBrand, getBrand } from "@/lib/data/brands";
 import { createSite, getSite } from "@/lib/data/sites";
 import { createMenuItem } from "@/lib/data/menuItems";
@@ -20,12 +20,10 @@ function redirectUrl(): string {
 }
 
 /**
- * Invites a brand-new Supabase Auth user by email (they set their own
- * password via the emailed link) and creates their profiles row in the
- * same step. This necessarily runs on the service-role client - the
- * Supabase Auth admin API can't be called with a regular user session -
- * so the authorization checks below (not RLS) are what stop an org_admin
- * from creating users outside their own organisation.
+ * Creates an empty organisation shell. There's no customer-side admin
+ * tier to invite alongside it any more - OpSpot (super_admin/agent) adds
+ * the brands, sites, and menu items, then invites ops/site_manager users
+ * directly once sites exist.
  */
 export async function createOrganisationAction(
   _prevState: AdminFormState,
@@ -34,37 +32,9 @@ export async function createOrganisationAction(
   await requireSuperAdmin();
 
   const name = String(formData.get("name") ?? "").trim();
-  const adminEmail = String(formData.get("adminEmail") ?? "").trim().toLowerCase();
+  if (!name) return { error: "Organisation name is required." };
 
-  if (!name || !adminEmail) {
-    return { error: "Organisation name and an admin email are required." };
-  }
-
-  const organisation = await createOrganisation(name);
-
-  const admin = getSupabaseAdmin();
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(adminEmail, {
-    redirectTo: redirectUrl(),
-  });
-  if (error || !data.user) {
-    return {
-      error: `Organisation created, but inviting the admin failed: ${error?.message ?? "unknown error"}`,
-    };
-  }
-
-  const { error: profileError } = await admin.from("profiles").insert({
-    id: data.user.id,
-    email: adminEmail,
-    role: "org_admin",
-    organisation_id: organisation.id,
-    brand_id: null,
-    site_id: null,
-  });
-  if (profileError) {
-    await admin.auth.admin.deleteUser(data.user.id);
-    return { error: profileError.message };
-  }
-
+  await createOrganisation(name);
   revalidatePath("/admin");
   return { success: true };
 }
@@ -73,19 +43,12 @@ export async function createBrandAction(
   _prevState: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  const actor = await requireOrgAdmin();
+  await requireSuperAdmin();
 
   const organisationId = String(formData.get("organisationId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-
   if (!organisationId || !name) {
     return { error: "Organisation and brand name are required." };
-  }
-  if (actor.role === "org_admin" && organisationId !== actor.organisationId) {
-    return { error: "You can only add brands to your own organisation." };
-  }
-  if (!(await getOrganisation(organisationId))) {
-    return { error: "Unknown organisation." };
   }
 
   await createBrand(organisationId, name);
@@ -97,19 +60,14 @@ export async function createSiteAction(
   _prevState: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  const actor = await requireOrgAdmin();
+  await requireSuperAdmin();
 
   const brandId = String(formData.get("brandId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-
   if (!brandId || !name) {
     return { error: "Brand and site name are required." };
   }
-  const brand = await getBrand(brandId);
-  if (!brand) return { error: "Unknown brand." };
-  if (actor.role === "org_admin" && brand.organisationId !== actor.organisationId) {
-    return { error: "You can only add sites to your own organisation." };
-  }
+  if (!(await getBrand(brandId))) return { error: "Unknown brand." };
 
   await createSite(brandId, name);
   revalidatePath("/admin");
@@ -120,7 +78,7 @@ export async function createMenuItemAction(
   _prevState: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  const actor = await requireOrgAdmin();
+  await requireSuperAdmin();
 
   const brandId = String(formData.get("brandId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -135,12 +93,7 @@ export async function createMenuItemAction(
   if (!photo.type.startsWith("image/")) {
     return { error: "The reference photo must be an image." };
   }
-
-  const brand = await getBrand(brandId);
-  if (!brand) return { error: "Unknown brand." };
-  if (actor.role === "org_admin" && brand.organisationId !== actor.organisationId) {
-    return { error: "You can only add menu items to your own organisation." };
-  }
+  if (!(await getBrand(brandId))) return { error: "Unknown brand." };
 
   const admin = getSupabaseAdmin();
   const parts = photo.name.split(".");
@@ -165,13 +118,21 @@ export async function createMenuItemAction(
   return { success: true };
 }
 
-const INVITABLE_ROLES: Role[] = ["super_admin", "org_admin", "ops", "site_manager"];
+const INVITABLE_ROLES: Role[] = ["super_admin", "agent", "ops", "site_manager"];
 
+/**
+ * Invites a brand-new Supabase Auth user by email (they set their own
+ * password via the emailed link) and creates their profiles row in the
+ * same step. This necessarily runs on the service-role client - the
+ * Supabase Auth admin API can't be called with a regular user session.
+ * Only a super_admin can reach this action at all (requireSuperAdmin
+ * below), so there's no further per-organisation scoping to check.
+ */
 export async function inviteUserAction(
   _prevState: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  const actor = await requireOrgAdmin();
+  await requireSuperAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = String(formData.get("role") ?? "") as Role;
@@ -179,44 +140,18 @@ export async function inviteUserAction(
   if (!email || !INVITABLE_ROLES.includes(role)) {
     return { error: "Email and a valid role are required." };
   }
-  if (role === "super_admin" && actor.role !== "super_admin") {
-    return { error: "Only a super admin can create another super admin." };
-  }
 
-  let organisationId: string | null = null;
   let brandId: string | null = null;
   let siteId: string | null = null;
-  // The organisation this new user's scope belongs to, used purely to
-  // check an org_admin isn't reaching outside their own organisation -
-  // not necessarily the value stored on the profile row.
-  let targetOrganisationId: string | null = null;
 
-  if (role === "org_admin") {
-    organisationId = String(formData.get("organisationId") ?? "") || null;
-    if (!organisationId) return { error: "Organisation is required for an org admin." };
-    if (!(await getOrganisation(organisationId))) return { error: "Unknown organisation." };
-    targetOrganisationId = organisationId;
-  } else if (role === "ops") {
+  if (role === "ops") {
     brandId = String(formData.get("brandId") ?? "") || null;
-    if (!brandId) return { error: "Brand is required for an ops user." };
-    const brand = await getBrand(brandId);
-    if (!brand) return { error: "Unknown brand." };
-    targetOrganisationId = brand.organisationId;
+    if (!brandId) return { error: "Brand is required for an ops manager." };
+    if (!(await getBrand(brandId))) return { error: "Unknown brand." };
   } else if (role === "site_manager") {
     siteId = String(formData.get("siteId") ?? "") || null;
     if (!siteId) return { error: "Site is required for a site manager." };
-    const site = await getSite(siteId);
-    if (!site) return { error: "Unknown site." };
-    const brand = await getBrand(site.brandId);
-    if (!brand) return { error: "Unknown brand." };
-    targetOrganisationId = brand.organisationId;
-  }
-
-  if (
-    actor.role === "org_admin" &&
-    targetOrganisationId !== actor.organisationId
-  ) {
-    return { error: "You can only add users to your own organisation." };
+    if (!(await getSite(siteId))) return { error: "Unknown site." };
   }
 
   const admin = getSupabaseAdmin();
@@ -231,7 +166,7 @@ export async function inviteUserAction(
     id: data.user.id,
     email,
     role,
-    organisation_id: role === "org_admin" ? organisationId : null,
+    organisation_id: null,
     brand_id: role === "ops" ? brandId : null,
     site_id: role === "site_manager" ? siteId : null,
   });

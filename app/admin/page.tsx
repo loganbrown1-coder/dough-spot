@@ -1,4 +1,4 @@
-import { requireOrgAdmin } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth";
 import { listOrganisations, getOrganisation } from "@/lib/data/organisations";
 import { listBrandsByOrganisation } from "@/lib/data/brands";
 import { listSites } from "@/lib/data/sites";
@@ -11,6 +11,7 @@ import AddBrandForm from "@/app/components/AddBrandForm";
 import AddSiteForm from "@/app/components/AddSiteForm";
 import AddMenuItemForm from "@/app/components/AddMenuItemForm";
 import InviteUserForm from "@/app/components/InviteUserForm";
+import ActivityLog from "@/app/components/ActivityLog";
 import AdminTabs, { type AdminTab } from "@/app/components/AdminTabs";
 
 function SectionCard({
@@ -84,17 +85,20 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{ org?: string }>;
 }) {
-  const user = await requireOrgAdmin();
-  const isSuperAdmin = user.role === "super_admin";
+  await requireSuperAdmin();
 
-  const organisations = isSuperAdmin ? await listOrganisations() : [];
+  const organisations = await listOrganisations();
   const params = await searchParams;
 
-  const selectedOrgId = isSuperAdmin
-    ? params.org && organisations.some((o) => o.id === params.org)
+  const selectedOrgId =
+    params.org && organisations.some((o) => o.id === params.org)
       ? params.org
-      : organisations[0]?.id
-    : (user.organisationId ?? undefined);
+      : organisations[0]?.id;
+
+  const allProfiles = await listProfiles();
+  const opspotTeam = allProfiles.filter(
+    (p) => p.role === "super_admin" || p.role === "agent"
+  );
 
   if (!selectedOrgId) {
     return (
@@ -103,16 +107,21 @@ export default async function AdminPage({
         <SectionCard title="Create the first organisation">
           <CreateOrganisationForm />
         </SectionCard>
+        <DataTable
+          title="OpSpot team"
+          columns={["Email", "Role"]}
+          emptyMessage="No OpSpot accounts yet."
+          rows={opspotTeam.map((p) => [p.email, ROLE_LABELS[p.role]])}
+        />
       </div>
     );
   }
 
-  const selectedOrg = isSuperAdmin ? await getOrganisation(selectedOrgId) : null;
+  const selectedOrg = await getOrganisation(selectedOrgId);
 
-  const [brands, allSites, allProfiles, allMenuItems] = await Promise.all([
+  const [brands, allSites, allMenuItems] = await Promise.all([
     listBrandsByOrganisation(selectedOrgId),
     listSites(),
-    listProfiles(),
     listMenuItems(),
   ]);
 
@@ -120,11 +129,9 @@ export default async function AdminPage({
   const sites = allSites.filter((s) => brandIds.has(s.brandId));
   const siteIds = new Set(sites.map((s) => s.id));
   const menuItems = allMenuItems.filter((m) => brandIds.has(m.brandId));
-  const profiles = allProfiles.filter(
+  const customerUsers = allProfiles.filter(
     (p) =>
-      p.organisationId === selectedOrgId ||
-      (p.brandId && brandIds.has(p.brandId)) ||
-      (p.siteId && siteIds.has(p.siteId))
+      (p.brandId && brandIds.has(p.brandId)) || (p.siteId && siteIds.has(p.siteId))
   );
 
   const brandNameById = new Map(brands.map((b) => [b.id, b.name]));
@@ -225,34 +232,35 @@ export default async function AdminPage({
       content: (
         <>
           <SectionCard title="Invite a user">
-            <InviteUserForm
-              organisationId={selectedOrgId}
-              brands={brands}
-              sites={sites}
-              canInviteSuperAdmin={isSuperAdmin}
-            />
+            <InviteUserForm brands={brands} sites={sites} />
           </SectionCard>
           <DataTable
-            title="Users"
+            title="Customer users"
             columns={["Email", "Role", "Scope"]}
-            emptyMessage="No users yet."
-            rows={profiles.map((p) => [
+            emptyMessage="No users yet for this organisation."
+            rows={customerUsers.map((p) => [
               p.email,
               ROLE_LABELS[p.role],
-              p.role === "org_admin"
-                ? "Whole organisation"
-                : (p.siteId ? siteNameById.get(p.siteId) : undefined) ??
-                  (p.brandId ? brandNameById.get(p.brandId) : undefined) ??
-                  "-",
+              (p.siteId ? siteNameById.get(p.siteId) : undefined) ??
+                (p.brandId ? brandNameById.get(p.brandId) : undefined) ??
+                "-",
             ])}
+          />
+          <DataTable
+            title="OpSpot team"
+            columns={["Email", "Role"]}
+            emptyMessage="No OpSpot accounts yet."
+            rows={opspotTeam.map((p) => [p.email, ROLE_LABELS[p.role]])}
           />
         </>
       ),
     },
-  ];
-
-  if (isSuperAdmin) {
-    tabs.push({
+    {
+      id: "activity",
+      label: "Activity",
+      content: <ActivityLog sites={sites} />,
+    },
+    {
       id: "organisations",
       label: "Organisations",
       content: (
@@ -260,23 +268,21 @@ export default async function AdminPage({
           <CreateOrganisationForm />
         </SectionCard>
       ),
-    });
-  }
+    },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-4xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-navy">Admin</h1>
-        {isSuperAdmin && organisations.length > 1 && (
+        {organisations.length > 1 && (
           <OrgSwitcher organisations={organisations} selectedOrgId={selectedOrgId} />
         )}
       </div>
 
-      {isSuperAdmin && (
-        <p className="mb-6 text-sm text-secondary">
-          Managing <span className="font-semibold text-body">{selectedOrg?.name}</span>
-        </p>
-      )}
+      <p className="mb-6 text-sm text-secondary">
+        Managing <span className="font-semibold text-body">{selectedOrg?.name}</span>
+      </p>
 
       <AdminTabs tabs={tabs} />
     </div>

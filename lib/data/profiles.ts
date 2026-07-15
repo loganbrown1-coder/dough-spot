@@ -34,8 +34,8 @@ export async function getProfileById(id: string): Promise<Profile | null> {
 
 /**
  * Every profile the current user can see, per the `profiles_select` row
- * level security policy: their own row, plus (for org_admin/super_admin)
- * everyone in scope. Not filtered further in JS.
+ * level security policy: their own row, plus (for super_admin) everyone.
+ * Not filtered further in JS.
  */
 export async function listProfiles(): Promise<Profile[]> {
   const supabase = await createClient();

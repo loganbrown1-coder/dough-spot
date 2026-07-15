@@ -10,7 +10,7 @@ import {
 import { compressImage } from "@/lib/compressImage";
 import { groupSitesByBrand } from "@/lib/siteGroups";
 import DayPartPhotoGrid from "@/app/components/DayPartPhotoGrid";
-import type { Brand, Capture, DayPart, MenuItem, Site } from "@/types";
+import type { Brand, Capture, DayPart, MenuItem, Role, Site } from "@/types";
 
 function formatSize(bytes: number): string {
   return bytes < 1024 * 1024
@@ -121,6 +121,7 @@ export default function UploadForm({
   dayParts,
   defaultSiteId,
   defaultDate,
+  viewerRole,
 }: {
   sites: Site[];
   brands: Brand[];
@@ -128,6 +129,7 @@ export default function UploadForm({
   dayParts: DayPart[];
   defaultSiteId?: string;
   defaultDate: string;
+  viewerRole: Role;
 }) {
   const [state, formAction] = useActionState(uploadCapturesAction, initialState);
   const groups = groupSitesByBrand(sites, brands);
@@ -243,6 +245,7 @@ export default function UploadForm({
             captures={existingCaptures}
             menuItems={availableMenuItems}
             readOnly={false}
+            viewerRole={viewerRole}
             onChanged={refetchExisting}
           />
         </div>

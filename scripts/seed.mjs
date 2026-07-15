@@ -148,7 +148,6 @@ async function main() {
   const shoreditch = fireawaySites.find((s) => s.name === "Fireaway Shoreditch");
 
   console.log("Seeding Fireaway test users...");
-  await createUser("admin@fireaway.test", "org_admin", { organisationId: fireawayOrg.id });
   await createUser("ops@fireaway.test", "ops", { brandId: fireawayBrand.id });
   await createUser("manager@fireaway.test", "site_manager", { siteId: camden.id });
 
@@ -189,24 +188,25 @@ async function main() {
   if (wildfireSiteError) throw wildfireSiteError;
 
   console.log("Seeding Wildfire Grill test user...");
-  await createUser("admin@wildfiregrill.test", "org_admin", {
-    organisationId: wildfireOrg.id,
+  await createUser("manager@wildfiregrill.test", "site_manager", {
+    siteId: wildfireSite.id,
   });
 
   console.log("Seeding Wildfire Grill sample captures...");
   await seedCapturesForDayPart(wildfireSite, todayStr, "A", 18);
 
-  // --- Cross-organisation super admin ---------------------------------
-  console.log("Seeding super admin...");
+  // --- OpSpot's own accounts (unrestricted across every organisation) --
+  console.log("Seeding OpSpot team accounts...");
   await createUser("super@opspot.test", "super_admin", {});
+  await createUser("agent@opspot.test", "agent", {});
 
   console.log("\nDone. Test accounts (password: Password123!):");
-  console.log("  super@opspot.test - super admin, sees every organisation");
-  console.log("  admin@fireaway.test - org admin for Fireaway");
-  console.log("  ops@fireaway.test - ops, sees every Fireaway site");
-  console.log("  manager@fireaway.test - site manager, Fireaway Camden only");
+  console.log("  super@opspot.test - OpSpot admin, manages every organisation");
+  console.log("  agent@opspot.test - OpSpot agent, uploads/rates for any organisation");
+  console.log("  ops@fireaway.test - customer, sees every Fireaway site (view-only, can flag)");
+  console.log("  manager@fireaway.test - customer, Fireaway Camden only (view-only, can flag)");
   console.log(
-    "  admin@wildfiregrill.test - org admin for Wildfire Grill (a separate organisation - log in as this user to confirm you see none of Fireaway's data)"
+    "  manager@wildfiregrill.test - customer in a separate organisation - log in as this user to confirm you see none of Fireaway's data"
   );
 }
 

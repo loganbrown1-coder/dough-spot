@@ -8,10 +8,11 @@ export default function MobileTabBar({ user }: { user: Profile | null }) {
   const pathname = usePathname();
   if (!user) return null;
 
-  const showAdmin = user.role === "org_admin" || user.role === "super_admin";
+  const showUpload = user.role === "agent" || user.role === "super_admin";
+  const showAdmin = user.role === "super_admin";
   const links = [
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/upload", label: "Upload" },
+    ...(showUpload ? [{ href: "/upload", label: "Upload" }] : []),
     ...(showAdmin ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 

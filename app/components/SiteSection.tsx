@@ -1,6 +1,6 @@
 import Link from "next/link";
 import DayPartCard from "@/app/components/DayPartCard";
-import type { Capture, DayPart, MenuItem, Site } from "@/types";
+import type { Capture, DayPart, MenuItem, Role, Site } from "@/types";
 
 export default function SiteSection({
   site,
@@ -9,6 +9,7 @@ export default function SiteSection({
   date,
   menuItems,
   linkToFilter,
+  viewerRole,
 }: {
   site: Site;
   dayParts: DayPart[];
@@ -16,6 +17,7 @@ export default function SiteSection({
   date: string;
   menuItems: MenuItem[];
   linkToFilter: boolean;
+  viewerRole: Role;
 }) {
   const brandMenuItems = menuItems.filter((m) => m.brandId === site.brandId);
 
@@ -40,6 +42,7 @@ export default function SiteSection({
             dayPart={dayPart}
             captures={captures.filter((c) => c.dayPartId === dayPart.id)}
             menuItems={brandMenuItems}
+            viewerRole={viewerRole}
           />
         ))}
       </div>

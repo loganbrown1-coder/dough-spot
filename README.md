@@ -39,16 +39,16 @@ Open http://localhost:3000.
 ### Test accounts
 
 `npm run seed` creates two separate organisations so you can see tenant
-isolation working - log in as `admin@wildfiregrill.test` and confirm you see
-none of Fireaway's sites or photos.
+isolation working - log in as `manager@wildfiregrill.test` and confirm you
+see none of Fireaway's sites or photos.
 
-| Role         | Email                       | Scope                                    |
-|--------------|------------------------------|-------------------------------------------|
-| Super admin  | super@opspot.test           | Every organisation                        |
-| Org admin    | admin@fireaway.test         | Everything under the Fireaway organisation|
-| Ops          | ops@fireaway.test           | Every site under the Fireaway brand       |
-| Site manager | manager@fireaway.test       | Fireaway Camden only                      |
-| Org admin    | admin@wildfiregrill.test    | The separate Wildfire Grill organisation  |
+| Role         | Email                         | Scope                                                    |
+|--------------|--------------------------------|------------------------------------------------------------|
+| OpSpot admin | super@opspot.test             | Every organisation - full admin access                     |
+| OpSpot agent | agent@opspot.test             | Every organisation - uploads/replaces/deletes/rates photos |
+| Ops manager  | ops@fireaway.test              | Every Fireaway site - view-only, can flag a photo          |
+| Site manager | manager@fireaway.test         | Fireaway Camden only - view-only, can flag a photo          |
+| Site manager | manager@wildfiregrill.test    | The separate Wildfire Grill organisation - view-only        |
 
 Password for all of them: `Password123!`
 
@@ -71,15 +71,24 @@ app works the same in production as it does locally.
 
 ## How access control works
 
-The hierarchy is `organisation → brand → site → capture`. Every user has a
-role and a scope, stored on their `profiles` row:
+The hierarchy is `organisation → brand → site → capture`. There are two
+groups of roles: OpSpot's own accounts (unrestricted across every
+customer) and a customer's own staff (scoped to their own brand/site,
+view-only). Every user has a role and a scope, stored on their `profiles`
+row:
 
-| Role           | Scope column set | Sees                                    |
-|----------------|-------------------|------------------------------------------|
-| `super_admin`  | none (all null)   | Every organisation                        |
-| `org_admin`    | `organisation_id` | Every brand/site in that one organisation |
-| `ops`          | `brand_id`        | Every site under that one brand           |
-| `site_manager` | `site_id`         | That one site                             |
+| Role           | Scope column set | Sees / can do                                                          |
+|----------------|-------------------|--------------------------------------------------------------------------|
+| `super_admin`  | none (all null)   | OpSpot - every organisation, full admin (brands/sites/menu items/users)  |
+| `agent`        | none (all null)   | OpSpot - every organisation, uploads/replaces/deletes/rates photos only  |
+| `ops`          | `brand_id`        | Customer - every site under that one brand, view-only, can flag a photo  |
+| `site_manager` | `site_id`         | Customer - that one site, view-only, can flag a photo                    |
+
+A customer role can never upload, edit, delete, or set a rating - only
+flag a photo with a note (e.g. "tagged as Pepperoni but it's actually
+Margherita") for an agent to review. Only `agent`/`super_admin` can reach
+the Upload page at all (`requireUploader` in `lib/auth.ts`); only
+`super_admin` can reach the Admin page (`requireSuperAdmin`).
 
 This is enforced twice, deliberately:
 
@@ -89,14 +98,23 @@ This is enforced twice, deliberately:
    user's own session (not a service-role key) - so even a bug in a page
    component can't leak one organisation's data into another's, because
    the database itself won't return rows outside the caller's scope.
-2. **Application-level checks** (`requireOrgAdmin`, `requireSuperAdmin` in
-   `lib/auth.ts`, and the authorization checks in `lib/actions/admin.ts`)
-   gate the two things that genuinely require the service-role key and
-   therefore bypass RLS: inviting a new user via the Supabase Auth admin
-   API, and writing uploaded photos to Storage. These are the only places
-   correctness depends on application code rather than the database.
+   Row level security scopes *which rows* a role can touch; it can't
+   restrict individual *columns*, so a customer's `captures_update`
+   access (needed to set the flag columns) is further narrowed in the
+   server actions below to only ever touch those columns for that role.
+2. **Application-level checks** (`requireUploader`, `requireSuperAdmin`,
+   `canManageCaptures` in `lib/auth.ts`, and the authorization checks in
+   `lib/actions/admin.ts` and `lib/actions/captures.ts`) gate the things
+   that genuinely require the service-role key and therefore bypass RLS
+   (inviting a user, writing to Storage), plus the column-level
+   restriction above.
 
-New users are never given a password directly - `admin`/`org_admin` invite
+Every upload, replace, delete, clear-all, rating change, flag, and
+resolve is also written to `capture_events` - an append-only audit log a
+`super_admin` can browse from the Admin page's Activity tab, filtered by
+site and date.
+
+New users are never given a password directly - a `super_admin` invites
 people by email (`lib/actions/admin.ts` → `inviteUserAction`), Supabase
 sends an invite email, and the person sets their own password by following
 the link (`app/auth/callback` → `app/auth/set-password`).
@@ -108,7 +126,7 @@ the link (`app/auth/callback` → `app/auth/set-password`).
 - `lib/db/supabase-server.ts` - the user-scoped, RLS-respecting Supabase client (used for almost everything).
 - `lib/db/supabase-admin.ts` - the service-role client, used only for the Auth admin API and Storage writes.
 - `lib/db/supabase-middleware.ts` + `middleware.ts` - refreshes the Supabase Auth session cookie on every request.
-- `lib/auth.ts` - `getCurrentUser`/`requireUser`/`requireOrgAdmin`/`requireSuperAdmin`, and `sitesInScope` (which just asks the database what the current user can see).
+- `lib/auth.ts` - `getCurrentUser`/`requireUser`/`requireUploader`/`requireSuperAdmin`/`canManageCaptures`, and `sitesInScope` (which just asks the database what the current user can see).
 - `lib/actions/` - server actions backing the forms (login, logout, set-password, upload, admin invite/create-organisation/create-brand/create-site).
 - `supabase/schema.sql` - the Postgres schema, RLS policies, and storage bucket setup, run once per project.
 - `scripts/seed.mjs` - one-time seed script for a fresh Supabase project.

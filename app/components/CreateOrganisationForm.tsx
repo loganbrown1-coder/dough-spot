@@ -38,22 +38,13 @@ export default function CreateOrganisationForm() {
             className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
           />
         </div>
-        <div className="flex w-full flex-1 flex-col gap-1.5">
-          <label className="text-xs font-bold text-body">First admin&apos;s email</label>
-          <input
-            name="adminEmail"
-            type="email"
-            required
-            placeholder="owner@acmepizza.com"
-            className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
-          />
-        </div>
         <SubmitButton />
       </div>
       {state.error && <p className="text-[13px] text-error">{state.error}</p>}
       {state.success && (
         <p className="text-[13px] text-success">
-          Organisation created and an invite email sent.
+          Organisation created. Add a brand and site, then invite users from
+          the Users tab.
         </p>
       )}
     </form>
