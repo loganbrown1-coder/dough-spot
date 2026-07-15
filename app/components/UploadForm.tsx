@@ -141,6 +141,7 @@ export default function UploadForm({
 
   const [existingCaptures, setExistingCaptures] = useState<Capture[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(false);
+  const dayPartComplete = existingCaptures.length === 3;
 
   const refetchExisting = useCallback(async () => {
     if (!selectedSiteId || !selectedDate || !selectedDayPartId) return;
@@ -151,11 +152,15 @@ export default function UploadForm({
   }, [selectedSiteId, selectedDate, selectedDayPartId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refetchExisting();
   }, [refetchExisting]);
 
   useEffect(() => {
-    if (state.success) refetchExisting();
+    if (state.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      refetchExisting();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.success]);
 
@@ -243,25 +248,33 @@ export default function UploadForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {[1, 2, 3].map((n) => (
-          <PhotoDropzone key={n} n={n} menuItems={availableMenuItems} />
-        ))}
-      </div>
-
-      {state.error && (
-        <p className="rounded-brand border border-error-border bg-error-bg px-3 py-2.5 text-[13px] text-error">
-          {state.error}
+      {dayPartComplete ? (
+        <p className="text-[13px] text-secondary">
+          All 3 photos are in for this shift. Use Replace or Delete above to make changes.
         </p>
-      )}
-      {state.success && (
-        <p className="rounded-brand border border-success-border bg-success-bg px-4 py-3 text-[13px] font-semibold text-success">
-          ✓ Upload complete — these photos replaced any previous photos for this
-          site, date and shift.
-        </p>
-      )}
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[1, 2, 3].map((n) => (
+              <PhotoDropzone key={n} n={n} menuItems={availableMenuItems} />
+            ))}
+          </div>
 
-      <SubmitButton />
+          {state.error && (
+            <p className="rounded-brand border border-error-border bg-error-bg px-3 py-2.5 text-[13px] text-error">
+              {state.error}
+            </p>
+          )}
+          {state.success && (
+            <p className="rounded-brand border border-success-border bg-success-bg px-4 py-3 text-[13px] font-semibold text-success">
+              ✓ Upload complete — these photos replaced any previous photos for this
+              site, date and shift.
+            </p>
+          )}
+
+          <SubmitButton />
+        </>
+      )}
     </form>
   );
 }
