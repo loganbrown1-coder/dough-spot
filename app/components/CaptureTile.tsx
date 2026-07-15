@@ -317,14 +317,7 @@ export default function CaptureTile({
     setBusy(true);
     setError(null);
     (async () => {
-      const result = await deleteCaptureAction(
-        capture.id,
-        capture.imageUrl,
-        siteId,
-        date,
-        dayPartId,
-        sequence
-      );
+      const result = await deleteCaptureAction(capture.id, siteId, date, dayPartId, sequence);
       setBusy(false);
       if (result.error) setError(result.error);
       else notifyChanged();

@@ -8,6 +8,7 @@ function rowToProfile(row: {
   organisation_id: string | null;
   brand_id: string | null;
   site_id: string | null;
+  disabled: boolean;
   created_at: string;
 }): Profile {
   return {
@@ -17,6 +18,7 @@ function rowToProfile(row: {
     organisationId: row.organisation_id,
     brandId: row.brand_id,
     siteId: row.site_id,
+    disabled: row.disabled,
     createdAt: row.created_at,
   };
 }

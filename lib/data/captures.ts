@@ -1,5 +1,17 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { objectPathFromStoredUrl, signStoredUrls } from "@/lib/storagePaths";
 import type { Capture, CaptureSource } from "@/types";
+
+const BUCKET = "captures";
+
+/** Swaps each capture's stored (unresolvable, private-bucket) URL for a fresh signed one. */
+async function withSignedUrls(captures: Capture[]): Promise<Capture[]> {
+  const signed = await signStoredUrls(BUCKET, captures.map((c) => c.imageUrl));
+  return captures.map((c) => {
+    const path = objectPathFromStoredUrl(BUCKET, c.imageUrl);
+    return path && signed.has(path) ? { ...c, imageUrl: signed.get(path)! } : c;
+  });
+}
 
 function rowToCapture(row: {
   id: string;
@@ -48,7 +60,7 @@ export async function listCaptures(params: {
     .order("day_part_id")
     .order("sequence");
   if (error) throw error;
-  return (data ?? []).map(rowToCapture);
+  return withSignedUrls((data ?? []).map(rowToCapture));
 }
 
 /**
@@ -68,7 +80,7 @@ export async function listCapturesByDate(date: string): Promise<Capture[]> {
     .order("day_part_id")
     .order("sequence");
   if (error) throw error;
-  return (data ?? []).map(rowToCapture);
+  return withSignedUrls((data ?? []).map(rowToCapture));
 }
 
 export interface NewCaptureImage {

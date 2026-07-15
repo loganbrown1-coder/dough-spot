@@ -15,6 +15,7 @@ import {
   type NewCaptureImage,
 } from "@/lib/data/captures";
 import { logCaptureEvent, listCaptureEvents } from "@/lib/data/captureEvents";
+import { objectPathFromStoredUrl } from "@/lib/storagePaths";
 import type { Capture, CaptureEvent } from "@/types";
 
 export interface UploadState {
@@ -36,15 +37,6 @@ function extensionFor(file: File): string {
   const parts = file.name.split(".");
   const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "";
   return ext || "jpg";
-}
-
-/** Recovers the storage object path from a `captures` bucket public URL. */
-function objectPathFromPublicUrl(imageUrl: string): string | null {
-  const marker = `/object/public/${BUCKET}/`;
-  const idx = imageUrl.indexOf(marker);
-  if (idx === -1) return null;
-  const path = imageUrl.slice(idx + marker.length).split("?")[0];
-  return decodeURIComponent(path);
 }
 
 /**
@@ -304,7 +296,6 @@ export async function replaceCaptureImageAction(
 /** Deletes a single photo, including its storage object. */
 export async function deleteCaptureAction(
   captureId: string,
-  imageUrl: string,
   siteId: string,
   date: string,
   dayPartId: string,
@@ -316,15 +307,25 @@ export async function deleteCaptureAction(
     return { error: "Only OpSpot agents and admins can delete a photo." };
   }
 
+  // Fetched here (not passed in from the client) because the client only
+  // ever has a short-lived signed URL, not the stored path-carrier value
+  // needed to find the storage object.
+  const admin = getSupabaseAdmin();
+  const { data: row } = await admin
+    .from("captures")
+    .select("image_url")
+    .eq("id", captureId)
+    .maybeSingle();
+
   try {
     await deleteCapture(captureId);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to delete photo." };
   }
 
-  const path = objectPathFromPublicUrl(imageUrl);
+  const path = row?.image_url ? objectPathFromStoredUrl(BUCKET, row.image_url) : null;
   if (path) {
-    await getSupabaseAdmin().storage.from(BUCKET).remove([path]);
+    await admin.storage.from(BUCKET).remove([path]);
   }
 
   await logEvent({

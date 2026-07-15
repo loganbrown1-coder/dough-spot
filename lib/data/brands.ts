@@ -56,3 +56,9 @@ export async function createBrand(
   if (error) throw error;
   return rowToBrand(data);
 }
+
+export async function updateBrandName(id: string, name: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("brands").update({ name }).eq("id", id);
+  if (error) throw error;
+}

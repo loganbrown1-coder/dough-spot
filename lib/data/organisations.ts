@@ -1,8 +1,12 @@
 import { createClient } from "@/lib/db/supabase-server";
 import type { Organisation } from "@/types";
 
-function rowToOrganisation(row: { id: string; name: string }): Organisation {
-  return { id: row.id, name: row.name };
+function rowToOrganisation(row: {
+  id: string;
+  name: string;
+  retention_days: number;
+}): Organisation {
+  return { id: row.id, name: row.name, retentionDays: row.retention_days };
 }
 
 export async function listOrganisations(): Promise<Organisation[]> {
@@ -35,4 +39,16 @@ export async function createOrganisation(name: string): Promise<Organisation> {
     .single();
   if (error) throw error;
   return rowToOrganisation(data);
+}
+
+export async function updateOrganisationRetention(
+  id: string,
+  retentionDays: number
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organisations")
+    .update({ retention_days: retentionDays })
+    .eq("id", id);
+  if (error) throw error;
 }

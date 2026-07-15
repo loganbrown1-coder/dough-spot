@@ -52,3 +52,9 @@ export async function createSite(brandId: string, name: string): Promise<Site> {
   if (error) throw error;
   return rowToSite(data);
 }
+
+export async function updateSiteName(id: string, name: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("sites").update({ name }).eq("id", id);
+  if (error) throw error;
+}

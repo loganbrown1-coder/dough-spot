@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
-import { createOrganisation } from "@/lib/data/organisations";
-import { createBrand, getBrand } from "@/lib/data/brands";
-import { createSite, getSite } from "@/lib/data/sites";
-import { createMenuItem } from "@/lib/data/menuItems";
+import { createOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
+import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
+import { createSite, getSite, updateSiteName } from "@/lib/data/sites";
+import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
 import type { Role } from "@/types";
 
 export interface AdminFormState {
@@ -118,6 +118,73 @@ export async function createMenuItemAction(
   return { success: true };
 }
 
+export async function renameBrandAction(
+  id: string,
+  name: string
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!name.trim()) return { error: "Name can't be empty." };
+
+  try {
+    await updateBrandName(id, name.trim());
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to rename brand." };
+  }
+}
+
+export async function renameSiteAction(
+  id: string,
+  name: string
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!name.trim()) return { error: "Name can't be empty." };
+
+  try {
+    await updateSiteName(id, name.trim());
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to rename site." };
+  }
+}
+
+export async function renameMenuItemAction(
+  id: string,
+  name: string
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!name.trim()) return { error: "Name can't be empty." };
+
+  try {
+    await updateMenuItemName(id, name.trim());
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to rename menu item." };
+  }
+}
+
+/** How long a photo is kept before the scheduled purge job deletes it. */
+export async function updateOrganisationRetentionAction(
+  id: string,
+  retentionDays: number
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!Number.isInteger(retentionDays) || retentionDays < 1) {
+    return { error: "Retention must be a whole number of days, at least 1." };
+  }
+
+  try {
+    await updateOrganisationRetention(id, retentionDays);
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update retention." };
+  }
+}
+
 const INVITABLE_ROLES: Role[] = ["super_admin", "agent", "ops", "site_manager"];
 
 /**
@@ -178,4 +245,105 @@ export async function inviteUserAction(
 
   revalidatePath("/admin");
   return { success: true };
+}
+
+/**
+ * Changes an existing user's role and scope - e.g. promoting a
+ * site_manager to ops, or moving them to a different site.
+ */
+export async function updateUserRoleAction(
+  userId: string,
+  role: Role,
+  scopeId: string | null
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!INVITABLE_ROLES.includes(role)) return { error: "Invalid role." };
+
+  let brandId: string | null = null;
+  let siteId: string | null = null;
+
+  if (role === "ops") {
+    if (!scopeId) return { error: "Brand is required for an ops manager." };
+    if (!(await getBrand(scopeId))) return { error: "Unknown brand." };
+    brandId = scopeId;
+  } else if (role === "site_manager") {
+    if (!scopeId) return { error: "Site is required for a site manager." };
+    if (!(await getSite(scopeId))) return { error: "Unknown site." };
+    siteId = scopeId;
+  }
+
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("profiles")
+    .update({ role, organisation_id: null, brand_id: brandId, site_id: siteId })
+    .eq("id", userId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  return {};
+}
+
+/**
+ * Deactivates a user - e.g. someone who's left. Bans them in Supabase
+ * Auth (so a valid session/token stops working) and marks the profile
+ * disabled (checked again at session time in lib/auth.ts). Reversible -
+ * see reactivateUserAction.
+ */
+export async function deactivateUserAction(userId: string): Promise<{ error?: string }> {
+  const actor = await requireSuperAdmin();
+  if (userId === actor.id) return { error: "You can't deactivate your own account." };
+
+  const admin = getSupabaseAdmin();
+
+  // Set the profile flag first, so a failure here (e.g. migration
+  // 004 not run yet) leaves no side effect at all, rather than a user
+  // who's banned in Auth but not marked disabled.
+  const { error } = await admin.from("profiles").update({ disabled: true }).eq("id", userId);
+  if (error) return { error: error.message };
+
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: "876000h", // ~100 years - effectively permanent until reactivated
+  });
+  if (banError) return { error: banError.message };
+
+  revalidatePath("/admin");
+  return {};
+}
+
+export async function reactivateUserAction(userId: string): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const admin = getSupabaseAdmin();
+
+  const { error } = await admin.from("profiles").update({ disabled: false }).eq("id", userId);
+  if (error) return { error: error.message };
+
+  const { error: unbanError } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: "none",
+  });
+  if (unbanError) return { error: unbanError.message };
+
+  revalidatePath("/admin");
+  return {};
+}
+
+/**
+ * Permanently removes a user - deletes their profile row and their
+ * Supabase Auth account entirely. Unlike deactivate, this can't be
+ * undone. capture_events.actor_id references are preserved (set to null
+ * via ON DELETE SET NULL) so the audit log still reads correctly.
+ */
+export async function removeUserAction(userId: string): Promise<{ error?: string }> {
+  const actor = await requireSuperAdmin();
+  if (userId === actor.id) return { error: "You can't remove your own account." };
+
+  const admin = getSupabaseAdmin();
+  const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
+  if (profileError) return { error: profileError.message };
+
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+  if (authError) return { error: authError.message };
+
+  revalidatePath("/admin");
+  return {};
 }

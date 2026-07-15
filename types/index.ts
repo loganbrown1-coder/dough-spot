@@ -4,6 +4,7 @@ export type CaptureSource = "manual" | "automated";
 export interface Organisation {
   id: string;
   name: string;
+  retentionDays: number;
 }
 
 export interface Brand {
@@ -57,7 +58,8 @@ export type CaptureEventAction =
   | "clear_day_part"
   | "rate"
   | "flag"
-  | "resolve_flag";
+  | "resolve_flag"
+  | "purge";
 
 export interface CaptureEvent {
   id: string;
@@ -93,5 +95,6 @@ export interface Profile {
   organisationId: string | null;
   brandId: string | null;
   siteId: string | null;
+  disabled: boolean;
   createdAt: string;
 }

@@ -19,6 +19,7 @@ const ACTION_LABELS: Record<CaptureEventAction, string> = {
   rate: "Rated",
   flag: "Flagged",
   resolve_flag: "Resolved flag",
+  purge: "Auto-deleted (retention)",
 };
 
 function formatTime(iso: string): string {

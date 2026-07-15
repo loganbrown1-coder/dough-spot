@@ -4,7 +4,7 @@ import { listBrandsByOrganisation } from "@/lib/data/brands";
 import { listSites } from "@/lib/data/sites";
 import { listProfiles } from "@/lib/data/profiles";
 import { listMenuItems } from "@/lib/data/menuItems";
-import { ROLE_LABELS } from "@/lib/roleLabels";
+import { renameBrandAction, renameSiteAction, renameMenuItemAction } from "@/lib/actions/admin";
 import CreateOrganisationForm from "@/app/components/CreateOrganisationForm";
 import OrgSwitcher from "@/app/components/OrgSwitcher";
 import AddBrandForm from "@/app/components/AddBrandForm";
@@ -12,6 +12,9 @@ import AddSiteForm from "@/app/components/AddSiteForm";
 import AddMenuItemForm from "@/app/components/AddMenuItemForm";
 import InviteUserForm from "@/app/components/InviteUserForm";
 import ActivityLog from "@/app/components/ActivityLog";
+import RenameField from "@/app/components/RenameField";
+import RetentionField from "@/app/components/RetentionField";
+import UsersTable from "@/app/components/UsersTable";
 import AdminTabs, { type AdminTab } from "@/app/components/AdminTabs";
 
 function SectionCard({
@@ -39,7 +42,7 @@ function DataTable({
 }: {
   title: string;
   columns: string[];
-  rows: string[][];
+  rows: React.ReactNode[][];
   emptyMessage: string;
 }) {
   return (
@@ -100,18 +103,56 @@ export default async function AdminPage({
     (p) => p.role === "super_admin" || p.role === "agent"
   );
 
+  const organisationsTab: AdminTab = {
+    id: "organisations",
+    label: "Organisations",
+    content: (
+      <>
+        <SectionCard title="Create a new organisation">
+          <CreateOrganisationForm />
+        </SectionCard>
+        <div className="overflow-hidden rounded-brand border border-border-default bg-white">
+          <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
+            Organisations
+          </div>
+          {organisations.length === 0 ? (
+            <p className="px-5 py-4 text-[13px] text-secondary">No organisations yet.</p>
+          ) : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="text-left font-bold text-muted">
+                  <th className="px-5 py-2.5">Name</th>
+                  <th className="px-5 py-2.5">Photo retention</th>
+                </tr>
+              </thead>
+              <tbody>
+                {organisations.map((org) => (
+                  <tr key={org.id} className="border-t border-border-subtle">
+                    <td className="px-5 py-2.5 text-body">{org.name}</td>
+                    <td className="px-5 py-2.5">
+                      <RetentionField organisationId={org.id} retentionDays={org.retentionDays} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </>
+    ),
+  };
+
   if (!selectedOrgId) {
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6 px-8 py-8">
         <h1 className="text-2xl font-extrabold text-navy">Admin</h1>
-        <SectionCard title="Create the first organisation">
-          <CreateOrganisationForm />
-        </SectionCard>
-        <DataTable
+        {organisationsTab.content}
+        <UsersTable
           title="OpSpot team"
-          columns={["Email", "Role"]}
+          users={opspotTeam}
+          brands={[]}
+          sites={[]}
           emptyMessage="No OpSpot accounts yet."
-          rows={opspotTeam.map((p) => [p.email, ROLE_LABELS[p.role]])}
         />
       </div>
     );
@@ -135,7 +176,6 @@ export default async function AdminPage({
   );
 
   const brandNameById = new Map(brands.map((b) => [b.id, b.name]));
-  const siteNameById = new Map(sites.map((s) => [s.id, s.name]));
 
   const tabs: AdminTab[] = [
     {
@@ -151,7 +191,7 @@ export default async function AdminPage({
             columns={["Name", "Sites"]}
             emptyMessage="No brands yet."
             rows={brands.map((b) => [
-              b.name,
+              <RenameField key={b.id} id={b.id} name={b.name} action={renameBrandAction} />,
               String(sites.filter((s) => s.brandId === b.id).length),
             ])}
           />
@@ -166,7 +206,10 @@ export default async function AdminPage({
             title="Sites"
             columns={["Name", "Brand"]}
             emptyMessage="No sites yet."
-            rows={sites.map((s) => [s.name, brandNameById.get(s.brandId) ?? "-"])}
+            rows={sites.map((s) => [
+              <RenameField key={s.id} id={s.id} name={s.name} action={renameSiteAction} />,
+              brandNameById.get(s.brandId) ?? "-",
+            ])}
           />
         </>
       ),
@@ -213,7 +256,9 @@ export default async function AdminPage({
                           <div className="h-10 w-10 rounded-brand bg-app" />
                         )}
                       </td>
-                      <td className="px-5 py-2.5 text-body">{item.name}</td>
+                      <td className="px-5 py-2.5 text-body">
+                        <RenameField id={item.id} name={item.name} action={renameMenuItemAction} />
+                      </td>
                       <td className="px-5 py-2.5 text-secondary">
                         {brandNameById.get(item.brandId) ?? "-"}
                       </td>
@@ -234,23 +279,19 @@ export default async function AdminPage({
           <SectionCard title="Invite a user">
             <InviteUserForm brands={brands} sites={sites} />
           </SectionCard>
-          <DataTable
+          <UsersTable
             title="Customer users"
-            columns={["Email", "Role", "Scope"]}
+            users={customerUsers}
+            brands={brands}
+            sites={sites}
             emptyMessage="No users yet for this organisation."
-            rows={customerUsers.map((p) => [
-              p.email,
-              ROLE_LABELS[p.role],
-              (p.siteId ? siteNameById.get(p.siteId) : undefined) ??
-                (p.brandId ? brandNameById.get(p.brandId) : undefined) ??
-                "-",
-            ])}
           />
-          <DataTable
+          <UsersTable
             title="OpSpot team"
-            columns={["Email", "Role"]}
+            users={opspotTeam}
+            brands={brands}
+            sites={sites}
             emptyMessage="No OpSpot accounts yet."
-            rows={opspotTeam.map((p) => [p.email, ROLE_LABELS[p.role]])}
           />
         </>
       ),
@@ -260,15 +301,7 @@ export default async function AdminPage({
       label: "Activity",
       content: <ActivityLog sites={sites} />,
     },
-    {
-      id: "organisations",
-      label: "Organisations",
-      content: (
-        <SectionCard title="Create a new organisation">
-          <CreateOrganisationForm />
-        </SectionCard>
-      ),
-    },
+    organisationsTab,
   ];
 
   return (

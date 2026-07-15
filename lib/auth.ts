@@ -11,7 +11,16 @@ export async function getCurrentUser(): Promise<Profile | null> {
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    return await getProfileById(user.id);
+    const profile = await getProfileById(user.id);
+    // A deactivated account (deactivateUserAction) is also banned in
+    // Supabase Auth, but that ban may not invalidate an already-issued
+    // token instantly - this check is the second layer that does, and
+    // signing them out here cleans up the stale session cookie too.
+    if (profile?.disabled) {
+      await supabase.auth.signOut();
+      return null;
+    }
+    return profile;
   } catch (err) {
     // If Supabase is unreachable or misconfigured, fail closed (treat as
     // logged out) rather than 500ing every page in the app.

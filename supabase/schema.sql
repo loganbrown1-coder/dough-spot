@@ -14,6 +14,10 @@ create extension if not exists pgcrypto;
 create table if not exists organisations (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  -- How many days a photo is kept before the scheduled purge job
+  -- (app/api/cron/purge-expired-captures) deletes it. A super_admin can
+  -- raise this per organisation from Admin > Organisations.
+  retention_days integer not null default 14,
   created_at timestamptz not null default now()
 );
 
@@ -82,12 +86,16 @@ create table if not exists profiles (
   organisation_id uuid references organisations(id) on delete cascade,
   brand_id uuid references brands(id) on delete cascade,
   site_id uuid references sites(id) on delete cascade,
+  -- Set by an admin deactivating a user (e.g. someone who's left) without
+  -- deleting their history. Checked at session time in lib/auth.ts, on
+  -- top of also being banned in Supabase Auth itself.
+  disabled boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 -- Append-only audit log: every upload, replace, delete, clear-all, rating
--- change, flag, and resolve writes a row here, so an admin can open a
--- site + date and see who did what, when.
+-- change, flag, resolve, and scheduled purge writes a row here, so an
+-- admin can open a site + date and see who did what, when.
 create table if not exists capture_events (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references sites(id) on delete cascade,
@@ -97,7 +105,7 @@ create table if not exists capture_events (
   capture_id uuid references captures(id) on delete set null,
   actor_id uuid references profiles(id) on delete set null,
   actor_email text not null,
-  action text not null, -- 'upload' | 'replace' | 'delete' | 'clear_day_part' | 'rate' | 'flag' | 'resolve_flag'
+  action text not null, -- 'upload' | 'replace' | 'delete' | 'clear_day_part' | 'rate' | 'flag' | 'resolve_flag' | 'purge'
   detail text,
   created_at timestamptz not null default now()
 );
@@ -200,11 +208,14 @@ create policy "brands_update" on brands for update using (
 );
 
 -- menu_items: readable by anyone in that brand's scope; only super_admin
--- adds menu items (admin-page only).
+-- adds/renames menu items (admin-page only).
 create policy "menu_items_select" on menu_items for select using (
   brand_id in (select accessible_brand_ids())
 );
 create policy "menu_items_insert" on menu_items for insert with check (
+  (select role from current_profile()) = 'super_admin'
+);
+create policy "menu_items_update" on menu_items for update using (
   (select role from current_profile()) = 'super_admin'
 );
 
@@ -271,17 +282,22 @@ create policy "profiles_select" on profiles for select using (
 -- ---------------------------------------------------------------------
 -- Storage
 -- ---------------------------------------------------------------------
--- Public storage bucket for captured photos. Uploads are written from the
--- server using the service-role key (which bypasses storage policies),
--- gated by the same accessible-site check as the captures table above,
--- enforced in lib/actions/captures.ts before any file is written. The
--- bucket is public so the dashboard can render photos with plain
--- <img src> URLs.
+-- Private storage bucket for captured photos. Uploads are written from
+-- the server using the service-role key (which bypasses storage
+-- policies), gated by the same accessible-site check as the captures
+-- table above, enforced in lib/actions/captures.ts before any file is
+-- written. The bucket is private - there is no bare URL that serves a
+-- photo. Every read goes through a short-lived signed URL, generated
+-- server-side (also via the service-role key) in lib/data/captures.ts,
+-- for rows already scoped by the captures_select row level security
+-- policy - so signing never bypasses who's allowed to see a photo, only
+-- how the browser fetches the one they're already allowed to see.
 insert into storage.buckets (id, name, public)
-values ('captures', 'captures', true)
-on conflict (id) do nothing;
+values ('captures', 'captures', false)
+on conflict (id) do update set public = false;
 
--- Public storage bucket for menu item reference photos.
+-- Private storage bucket for menu item reference photos - same signed-URL
+-- treatment, from lib/data/menuItems.ts.
 insert into storage.buckets (id, name, public)
-values ('menu-items', 'menu-items', true)
-on conflict (id) do nothing;
+values ('menu-items', 'menu-items', false)
+on conflict (id) do update set public = false;

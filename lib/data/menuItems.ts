@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { objectPathFromStoredUrl, signStoredUrls } from "@/lib/storagePaths";
 import type { MenuItem } from "@/types";
+
+const BUCKET = "menu-items";
 
 function rowToMenuItem(row: {
   id: string;
@@ -17,6 +20,18 @@ function rowToMenuItem(row: {
   };
 }
 
+/** Swaps each item's stored (unresolvable, private-bucket) URL for a fresh signed one. */
+async function withSignedUrls(items: MenuItem[]): Promise<MenuItem[]> {
+  const signed = await signStoredUrls(BUCKET, items.map((i) => i.referenceImageUrl));
+  return items.map((i) => {
+    if (!i.referenceImageUrl) return i;
+    const path = objectPathFromStoredUrl(BUCKET, i.referenceImageUrl);
+    return path && signed.has(path)
+      ? { ...i, referenceImageUrl: signed.get(path)! }
+      : i;
+  });
+}
+
 export async function listMenuItems(): Promise<MenuItem[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -24,7 +39,7 @@ export async function listMenuItems(): Promise<MenuItem[]> {
     .select("*")
     .order("name");
   if (error) throw error;
-  return (data ?? []).map(rowToMenuItem);
+  return withSignedUrls((data ?? []).map(rowToMenuItem));
 }
 
 export async function listMenuItemsByBrand(brandId: string): Promise<MenuItem[]> {
@@ -35,7 +50,13 @@ export async function listMenuItemsByBrand(brandId: string): Promise<MenuItem[]>
     .eq("brand_id", brandId)
     .order("name");
   if (error) throw error;
-  return (data ?? []).map(rowToMenuItem);
+  return withSignedUrls((data ?? []).map(rowToMenuItem));
+}
+
+export async function updateMenuItemName(id: string, name: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("menu_items").update({ name }).eq("id", id);
+  if (error) throw error;
 }
 
 export async function createMenuItem(params: {
