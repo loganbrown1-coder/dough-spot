@@ -3,13 +3,13 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { inviteUserAction, type AdminFormState } from "@/lib/actions/admin";
-import type { Brand, Role, Site } from "@/types";
+import type { Role } from "@/types";
 
 const initialState: AdminFormState = {};
 
 const ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
-  { value: "site_manager", label: "Site Manager", hint: "Views one site" },
-  { value: "ops", label: "Ops Manager", hint: "Views every site under a brand" },
+  { value: "agent", label: "OpSpot Agent", hint: "Uploads and rates photos for any customer" },
+  { value: "super_admin", label: "OpSpot Admin", hint: "Full admin access across every organisation" },
 ];
 
 function SubmitButton() {
@@ -25,15 +25,9 @@ function SubmitButton() {
   );
 }
 
-export default function InviteUserForm({
-  brands,
-  sites,
-}: {
-  brands: Brand[];
-  sites: Site[];
-}) {
+export default function InviteOpspotUserForm() {
   const [state, formAction] = useActionState(inviteUserAction, initialState);
-  const [role, setRole] = useState<Role>("site_manager");
+  const [role, setRole] = useState<Role>("agent");
 
   return (
     <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
@@ -44,7 +38,7 @@ export default function InviteUserForm({
             name="email"
             type="email"
             required
-            placeholder="name@restaurant.com"
+            placeholder="name@opspot.com"
             className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
           />
         </div>
@@ -67,40 +61,6 @@ export default function InviteUserForm({
           </span>
         </div>
       </div>
-
-      {role === "ops" && (
-        <div className="flex max-w-[320px] flex-col gap-1.5">
-          <label className="text-xs font-bold text-body">Brand</label>
-          <select
-            name="brandId"
-            required
-            className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
-          >
-            {brands.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {role === "site_manager" && (
-        <div className="flex max-w-[320px] flex-col gap-1.5">
-          <label className="text-xs font-bold text-body">Site</label>
-          <select
-            name="siteId"
-            required
-            className="h-9 rounded-brand border border-border-default px-2.5 text-[13px] text-body"
-          >
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted">Sends an email invite — no password is set here.</p>
