@@ -3,14 +3,15 @@
 import { getCurrentUser, canAccessSite } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import {
+  listCaptures,
   replaceCaptures,
   updateCaptureRating,
-  updateCaptureMenuItem,
   updateCaptureImage,
   deleteCapture,
   deleteCapturesForDayPart,
   type NewCaptureImage,
 } from "@/lib/data/captures";
+import type { Capture } from "@/types";
 
 export interface UploadState {
   error?: string;
@@ -159,19 +160,27 @@ export async function rateCaptureAction(
   }
 }
 
-/** Retags an already-uploaded photo with a different menu item (or clears it). */
-export async function updateCaptureMenuItemAction(
-  captureId: string,
-  menuItemId: string | null
-): Promise<{ error?: string }> {
+/**
+ * The already-uploaded photos for one site/date/day part, for the "current
+ * photos for this shift" section on the upload page. RLS (`captures_select`)
+ * is what actually enforces the caller can see this site.
+ */
+export async function getExistingCapturesAction(
+  siteId: string,
+  date: string,
+  dayPartId: string
+): Promise<{ captures: Capture[]; error?: string }> {
   const user = await getCurrentUser();
-  if (!user) return { error: "You must be signed in." };
+  if (!user) return { captures: [], error: "You must be signed in." };
 
   try {
-    await updateCaptureMenuItem(captureId, menuItemId);
-    return {};
+    const all = await listCaptures({ siteId, date });
+    return { captures: all.filter((c) => c.dayPartId === dayPartId) };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to update menu item." };
+    return {
+      captures: [],
+      error: err instanceof Error ? err.message : "Failed to load existing photos.",
+    };
   }
 }
 

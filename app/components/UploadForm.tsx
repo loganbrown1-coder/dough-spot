@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { uploadCapturesAction, type UploadState } from "@/lib/actions/captures";
+import {
+  uploadCapturesAction,
+  getExistingCapturesAction,
+  type UploadState,
+} from "@/lib/actions/captures";
 import { compressImage } from "@/lib/compressImage";
 import { groupSitesByBrand } from "@/lib/siteGroups";
-import type { Brand, DayPart, MenuItem, Site } from "@/types";
+import DayPartPhotoGrid from "@/app/components/DayPartPhotoGrid";
+import type { Brand, Capture, DayPart, MenuItem, Site } from "@/types";
 
 function formatSize(bytes: number): string {
   return bytes < 1024 * 1024
@@ -93,12 +98,12 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
         ))}
       </select>
       {selectedMenuItem?.referenceImageUrl && (
-        <div className="flex items-center gap-2 rounded-brand border border-border-default bg-app p-1.5">
+        <div className="flex flex-col items-center gap-2 rounded-brand border border-border-default bg-app p-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={selectedMenuItem.referenceImageUrl}
             alt={`Reference: ${selectedMenuItem.name}`}
-            className="h-10 w-10 rounded-brand object-cover"
+            className="h-28 w-28 rounded-brand object-cover"
           />
           <span className="text-[11px] text-secondary">
             Reference for <span className="font-semibold text-body">{selectedMenuItem.name}</span>
@@ -127,9 +132,32 @@ export default function UploadForm({
   const [state, formAction] = useActionState(uploadCapturesAction, initialState);
   const groups = groupSitesByBrand(sites, brands);
   const [selectedSiteId, setSelectedSiteId] = useState(defaultSiteId ?? sites[0]?.id);
+  const [selectedDate, setSelectedDate] = useState(defaultDate);
+  const [selectedDayPartId, setSelectedDayPartId] = useState(dayParts[0]?.id ?? "");
 
   const selectedBrandId = sites.find((s) => s.id === selectedSiteId)?.brandId;
   const availableMenuItems = menuItems.filter((m) => m.brandId === selectedBrandId);
+  const selectedDayPart = dayParts.find((dp) => dp.id === selectedDayPartId);
+
+  const [existingCaptures, setExistingCaptures] = useState<Capture[]>([]);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+
+  const refetchExisting = useCallback(async () => {
+    if (!selectedSiteId || !selectedDate || !selectedDayPartId) return;
+    setLoadingExisting(true);
+    const result = await getExistingCapturesAction(selectedSiteId, selectedDate, selectedDayPartId);
+    setExistingCaptures(result.captures);
+    setLoadingExisting(false);
+  }, [selectedSiteId, selectedDate, selectedDayPartId]);
+
+  useEffect(() => {
+    refetchExisting();
+  }, [refetchExisting]);
+
+  useEffect(() => {
+    if (state.success) refetchExisting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.success]);
 
   return (
     <form action={formAction} className="flex flex-col gap-5" key={state.success ? "reset" : "form"}>
@@ -165,7 +193,8 @@ export default function UploadForm({
             id="date"
             name="date"
             type="date"
-            defaultValue={defaultDate}
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
             required
             className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           />
@@ -177,6 +206,8 @@ export default function UploadForm({
           <select
             id="dayPart"
             name="dayPart"
+            value={selectedDayPartId}
+            onChange={(e) => setSelectedDayPartId(e.target.value)}
             required
             className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           >
@@ -188,6 +219,29 @@ export default function UploadForm({
           </select>
         </div>
       </div>
+
+      {selectedDayPart && (
+        <div className="flex flex-col gap-2.5 rounded-brand border border-border-default bg-app p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[13px] font-bold text-body">
+              Current photos for this shift
+            </h2>
+            {loadingExisting && (
+              <span className="text-[11px] text-muted">Loading...</span>
+            )}
+          </div>
+          <DayPartPhotoGrid
+            siteId={selectedSiteId}
+            date={selectedDate}
+            dayPartId={selectedDayPartId}
+            dayPartLabel={selectedDayPart.label}
+            captures={existingCaptures}
+            menuItems={availableMenuItems}
+            readOnly={false}
+            onChanged={refetchExisting}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[1, 2, 3].map((n) => (

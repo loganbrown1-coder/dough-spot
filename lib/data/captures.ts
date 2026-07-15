@@ -133,19 +133,6 @@ export async function updateCaptureRating(
   if (error) throw error;
 }
 
-/** Retags a single capture with a different menu item, or clears it. */
-export async function updateCaptureMenuItem(
-  captureId: string,
-  menuItemId: string | null
-): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("captures")
-    .update({ menu_item_id: menuItemId })
-    .eq("id", captureId);
-  if (error) throw error;
-}
-
 /** Points a capture at a newly-uploaded replacement image. */
 export async function updateCaptureImage(
   captureId: string,

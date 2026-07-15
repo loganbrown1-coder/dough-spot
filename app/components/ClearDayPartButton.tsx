@@ -8,10 +8,12 @@ export default function ClearDayPartButton({
   siteId,
   date,
   dayPartId,
+  onChanged,
 }: {
   siteId: string;
   date: string;
   dayPartId: string;
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -23,6 +25,7 @@ export default function ClearDayPartButton({
     startTransition(async () => {
       const result = await deleteDayPartCapturesAction(siteId, date, dayPartId);
       if (result.error) setError(result.error);
+      else if (onChanged) onChanged();
       else router.refresh();
     });
   }
