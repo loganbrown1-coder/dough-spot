@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
-import { createOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
+import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
 import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
 import { createSite, getSite, updateSiteName } from "@/lib/data/sites";
 import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
+import { ROLE_LABELS } from "@/lib/roleLabels";
 import type { Role } from "@/types";
 
 export interface AdminFormState {
@@ -199,7 +200,7 @@ export async function inviteUserAction(
   _prevState: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  await requireSuperAdmin();
+  const inviter = await requireSuperAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = String(formData.get("role") ?? "") as Role;
@@ -210,20 +211,39 @@ export async function inviteUserAction(
 
   let brandId: string | null = null;
   let siteId: string | null = null;
+  // Scope this invite's role covers, in human terms - shown in the invite
+  // email so the recipient knows what they're accepting before they click.
+  // Empty for agent/super_admin, who aren't scoped to a customer org.
+  let scopeLabel = "";
 
   if (role === "ops") {
     brandId = String(formData.get("brandId") ?? "") || null;
     if (!brandId) return { error: "Brand is required for an ops manager." };
-    if (!(await getBrand(brandId))) return { error: "Unknown brand." };
+    const brand = await getBrand(brandId);
+    if (!brand) return { error: "Unknown brand." };
+    const org = await getOrganisation(brand.organisationId);
+    scopeLabel = org ? `${org.name} — ${brand.name}` : brand.name;
   } else if (role === "site_manager") {
     siteId = String(formData.get("siteId") ?? "") || null;
     if (!siteId) return { error: "Site is required for a site manager." };
-    if (!(await getSite(siteId))) return { error: "Unknown site." };
+    const site = await getSite(siteId);
+    if (!site) return { error: "Unknown site." };
+    const brand = await getBrand(site.brandId);
+    const org = brand ? await getOrganisation(brand.organisationId) : null;
+    scopeLabel = org ? `${org.name} — ${site.name}` : site.name;
   }
 
   const admin = getSupabaseAdmin();
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: redirectUrl(),
+    // Surfaced in the invite email template via {{ .Data.* }}, so the
+    // recipient sees who invited them and what they're being invited to
+    // before clicking through - see supabase/email-templates/invite.html.
+    data: {
+      invited_by: inviter.email,
+      role_label: ROLE_LABELS[role],
+      scope_label: scopeLabel,
+    },
   });
   if (error || !data.user) {
     return { error: error?.message ?? "Failed to invite user." };

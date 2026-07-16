@@ -7,21 +7,33 @@
 
   Message body field: paste everything below.
 
-  {{ .ConfirmationURL }} is a Supabase template variable - leave it exactly
-  as-is, it gets replaced with the real invite link automatically.
+  Template variables used here, all provided automatically by Supabase:
+    {{ .ConfirmationURL }} - the real invite link. Leave exactly as-is.
+    {{ .Email }}           - the recipient's email address.
+    {{ .Data.invited_by }}   - the inviting admin's email.
+    {{ .Data.role_label }}   - e.g. "Site Manager", "OpSpot Agent".
+    {{ .Data.scope_label }}  - e.g. "Fireaway — Fireaway Brighton".
+                               Empty for agent/super_admin invites, which
+                               aren't scoped to a customer org - the {{if}}
+                               below drops that clause when it's blank.
+
+  The last three come from the `data` object passed to
+  admin.auth.admin.inviteUserByEmail() in lib/actions/admin.ts
+  (inviteUserAction) - any invite sent from the Admin page already
+  includes them, so no extra setup is needed beyond pasting this in.
 -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6F8; padding:40px 16px; font-family:Arial, Helvetica, sans-serif;">
   <tr>
     <td align="center">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background:#FFFFFF; border:1px solid #D8DEE6; border-radius:4px; overflow:hidden;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background:#FFFFFF; border:1px solid #D8DEE6; border-radius:6px; overflow:hidden;">
         <tr>
-          <td style="background:#101D42; padding:20px 32px;">
+          <td style="background:#101D42; padding:24px 32px;">
             <table role="presentation" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="padding-right:10px;">
-                  <img src="https://dough-spot.vercel.app/brand/opspot-icon.png" width="26" height="26" alt="" style="display:block; border-radius:6px;" />
+                  <img src="https://dough-spot.vercel.app/brand/opspot-icon.png" width="28" height="28" alt="" style="display:block; border-radius:6px;" />
                 </td>
-                <td style="font-size:16px; font-weight:800; color:#FFFFFF; letter-spacing:0.5px;">
+                <td style="font-size:17px; font-weight:800; color:#FFFFFF; letter-spacing:0.5px;">
                   DOUGH SPOT
                 </td>
               </tr>
@@ -29,24 +41,32 @@
           </td>
         </tr>
         <tr>
-          <td style="padding:36px 32px 8px;">
-            <p style="margin:0 0 4px; font-size:20px; font-weight:800; color:#101D42;">
-              You're invited
+          <td style="padding:36px 32px 4px;">
+            <p style="margin:0 0 10px; font-size:20px; font-weight:800; color:#101D42;">
+              You've been invited to Dough Spot
             </p>
-            <p style="margin:0; font-size:14px; line-height:1.6; color:#6B7280;">
-              You've been invited to Dough Spot, the site photo dashboard for your
-              organisation. Accept the invite below to set your password and get
-              started.
+            <p style="margin:0; font-size:14px; line-height:1.6; color:#1F2430;">
+              <strong>{{ .Data.invited_by }}</strong> has invited you to join Dough Spot as
+              a <strong>{{ .Data.role_label }}</strong>{{ if .Data.scope_label }} for <strong>{{ .Data.scope_label }}</strong>{{ end }}.
             </p>
           </td>
         </tr>
         <tr>
-          <td style="padding:24px 32px 8px;">
+          <td style="padding:14px 32px 4px;">
+            <p style="margin:0; font-size:14px; line-height:1.6; color:#6B7280;">
+              Dough Spot is the site photo dashboard your team uses to track and
+              upload daily food-photo compliance checks. Accept the invite below
+              to set your password and get started.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:26px 32px 8px;">
             <table role="presentation" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="background:#0A6BFF; border-radius:4px;">
-                  <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:12px 28px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none;">
-                    Accept invite
+                <td style="background:#0A6BFF; border-radius:6px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:13px 28px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none;">
+                    Accept invite &amp; set password
                   </a>
                 </td>
               </tr>
@@ -56,16 +76,20 @@
         <tr>
           <td style="padding:8px 32px 32px;">
             <p style="margin:0; font-size:12px; line-height:1.6; color:#9AA3AF;">
+              This invite was sent to {{ .Email }}. If you weren't expecting
+              this, you can safely ignore this email.
+            </p>
+            <p style="margin:10px 0 0; font-size:12px; line-height:1.6; color:#9AA3AF;">
               If the button doesn't work, copy and paste this link into your
               browser:<br />
-              <a href="{{ .ConfirmationURL }}" style="color:#0A6BFF;">{{ .ConfirmationURL }}</a>
+              <a href="{{ .ConfirmationURL }}" style="color:#0A6BFF; word-break:break-all;">{{ .ConfirmationURL }}</a>
             </p>
           </td>
         </tr>
         <tr>
-          <td style="padding:16px 32px; border-top:1px solid #EEF0F3;">
+          <td style="padding:16px 32px; background:#F4F6F8; border-top:1px solid #D8DEE6;">
             <p style="margin:0; font-size:11px; color:#9AA3AF;">
-              Powered by OpSpot
+              Dough Spot &middot; Powered by OpSpot
             </p>
           </td>
         </tr>
