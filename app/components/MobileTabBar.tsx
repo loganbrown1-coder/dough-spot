@@ -13,6 +13,7 @@ export default function MobileTabBar({ user }: { user: Profile | null }) {
   const links = [
     { href: "/dashboard", label: "Dashboard" },
     ...(showUpload ? [{ href: "/upload", label: "Upload" }] : []),
+    ...(showUpload ? [{ href: "/flags", label: "Flags" }] : []),
     ...(showAdmin ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 

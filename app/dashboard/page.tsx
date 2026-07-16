@@ -12,7 +12,7 @@ import SiteSection from "@/app/components/SiteSection";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; date?: string; dayPart?: string }>;
+  searchParams: Promise<{ site?: string; date?: string; dayPart?: string; flagged?: string }>;
 }) {
   const user = await requireUser();
   const params = await searchParams;
@@ -35,14 +35,19 @@ export default async function DashboardPage({
   const visibleDayParts = selectedDayPartId
     ? allDayParts.filter((dp) => dp.id === selectedDayPartId)
     : allDayParts;
+  const flaggedOnly = params.flagged === "1";
 
-  const captures = await listCapturesByDate(selectedDate);
+  const allCaptures = await listCapturesByDate(selectedDate);
+  const captures = flaggedOnly ? allCaptures.filter((c) => c.flagged) : allCaptures;
   const capturesBySite = new Map<string, typeof captures>();
   for (const capture of captures) {
     const existing = capturesBySite.get(capture.siteId);
     if (existing) existing.push(capture);
     else capturesBySite.set(capture.siteId, [capture]);
   }
+  const visibleSites = flaggedOnly
+    ? sites.filter((s) => (capturesBySite.get(s.id)?.length ?? 0) > 0)
+    : sites;
 
   const uploadHref = selectedSiteId
     ? `/upload?site=${selectedSiteId}&date=${selectedDate}`
@@ -76,10 +81,15 @@ export default async function DashboardPage({
               selectedSiteId={selectedSiteId}
               selectedDate={selectedDate}
               selectedDayPartId={selectedDayPartId}
+              flaggedOnly={flaggedOnly}
             />
           </div>
 
-          {selectedSiteId ? (
+          {flaggedOnly && visibleSites.length === 0 ? (
+            <p className="rounded-brand border border-border-default bg-white p-6 text-sm text-secondary">
+              No flagged photos for this date.
+            </p>
+          ) : selectedSiteId ? (
             <SiteSection
               site={sites.find((s) => s.id === selectedSiteId)!}
               dayParts={visibleDayParts}
@@ -91,7 +101,7 @@ export default async function DashboardPage({
             />
           ) : (
             <div className="flex flex-col gap-8">
-              {groupSitesByBrand(sites, brands).map((group) => (
+              {groupSitesByBrand(visibleSites, brands).map((group) => (
                 <div key={group.brandName} className="flex flex-col gap-5">
                   <h2 className="text-lg font-extrabold text-navy">{group.brandName}</h2>
                   {group.sites.map((site) => (

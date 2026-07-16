@@ -27,6 +27,7 @@ function rowToCapture(row: {
   flagged: boolean;
   flag_comment: string | null;
   flagged_by: string | null;
+  flagged_by_email: string | null;
   flagged_at: string | null;
 }): Capture {
   return {
@@ -43,6 +44,7 @@ function rowToCapture(row: {
     flagged: row.flagged,
     flagComment: row.flag_comment,
     flaggedBy: row.flagged_by,
+    flaggedByEmail: row.flagged_by_email,
     flaggedAt: row.flagged_at,
   };
 }
@@ -79,6 +81,24 @@ export async function listCapturesByDate(date: string): Promise<Capture[]> {
     .order("site_id")
     .order("day_part_id")
     .order("sequence");
+  if (error) throw error;
+  return withSignedUrls((data ?? []).map(rowToCapture));
+}
+
+/**
+ * Every currently-flagged capture the caller can see, across every site
+ * and date - the /flags inbox. Not scoped to "today" like the dashboard,
+ * since a flag raised days ago is still unresolved until someone acts on
+ * it. RLS scopes this the same as everything else; in practice only
+ * agent/super_admin reach the page this backs.
+ */
+export async function listFlaggedCaptures(): Promise<Capture[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("captures")
+    .select("*")
+    .eq("flagged", true)
+    .order("flagged_at", { ascending: false });
   if (error) throw error;
   return withSignedUrls((data ?? []).map(rowToCapture));
 }
@@ -213,7 +233,8 @@ export async function deleteCapturesForDayPart(params: {
 export async function flagCapture(
   captureId: string,
   comment: string,
-  flaggedBy: string
+  flaggedBy: string,
+  flaggedByEmail: string
 ): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
@@ -222,6 +243,7 @@ export async function flagCapture(
       flagged: true,
       flag_comment: comment,
       flagged_by: flaggedBy,
+      flagged_by_email: flaggedByEmail,
       flagged_at: new Date().toISOString(),
     })
     .eq("id", captureId);
@@ -233,7 +255,13 @@ export async function resolveFlag(captureId: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("captures")
-    .update({ flagged: false, flag_comment: null, flagged_by: null, flagged_at: null })
+    .update({
+      flagged: false,
+      flag_comment: null,
+      flagged_by: null,
+      flagged_by_email: null,
+      flagged_at: null,
+    })
     .eq("id", captureId);
   if (error) throw error;
 }

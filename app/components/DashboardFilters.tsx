@@ -11,6 +11,7 @@ export default function DashboardFilters({
   selectedSiteId,
   selectedDate,
   selectedDayPartId,
+  flaggedOnly,
 }: {
   sites: Site[];
   brands: Brand[];
@@ -18,15 +19,22 @@ export default function DashboardFilters({
   selectedSiteId: string;
   selectedDate: string;
   selectedDayPartId: string;
+  flaggedOnly: boolean;
 }) {
   const router = useRouter();
   const groups = groupSitesByBrand(sites, brands);
 
-  function updateParams(next: { site?: string; date?: string; dayPart?: string }) {
+  function updateParams(next: {
+    site?: string;
+    date?: string;
+    dayPart?: string;
+    flagged?: boolean;
+  }) {
     const params = new URLSearchParams();
     params.set("site", next.site ?? selectedSiteId);
     params.set("date", next.date ?? selectedDate);
     params.set("dayPart", next.dayPart ?? selectedDayPartId);
+    if (next.flagged ?? flaggedOnly) params.set("flagged", "1");
     router.push(`/dashboard?${params.toString()}`);
   }
 
@@ -83,6 +91,17 @@ export default function DashboardFilters({
             </option>
           ))}
         </select>
+      </div>
+      <div className="flex flex-col justify-end gap-1.5">
+        <label className="flex h-10 items-center gap-2 text-sm font-semibold text-body">
+          <input
+            type="checkbox"
+            checked={flaggedOnly}
+            onChange={(e) => updateParams({ flagged: e.target.checked })}
+            className="h-4 w-4 accent-brand"
+          />
+          Flagged only
+        </label>
       </div>
     </div>
   );

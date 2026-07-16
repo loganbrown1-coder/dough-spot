@@ -408,7 +408,7 @@ export async function flagCaptureAction(
   if (!comment.trim()) return { error: "Add a note about what's wrong." };
 
   try {
-    await flagCapture(captureId, comment.trim(), user.id);
+    await flagCapture(captureId, comment.trim(), user.id, user.email);
     await logEvent({
       siteId,
       date,

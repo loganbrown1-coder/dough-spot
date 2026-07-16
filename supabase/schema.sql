@@ -60,10 +60,14 @@ create table if not exists captures (
   menu_item_id uuid references menu_items(id),
   rating smallint check (rating is null or rating between 1 and 5),
   -- A customer (ops/site_manager) can flag a photo with a note - e.g. it
-  -- was tagged wrong - for an agent to review and resolve.
+  -- was tagged wrong - for an agent to review and resolve. flagged_by_email
+  -- is denormalized (same reason as capture_events.actor_email below) - an
+  -- agent can't look up another user's email through profiles, since RLS
+  -- only lets a non-admin see their own row.
   flagged boolean not null default false,
   flag_comment text,
   flagged_by uuid references profiles(id) on delete set null,
+  flagged_by_email text,
   flagged_at timestamptz,
   unique (site_id, date, day_part_id, sequence)
 );

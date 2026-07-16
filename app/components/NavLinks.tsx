@@ -15,6 +15,7 @@ export default function NavLinks({
   const links = [
     { href: "/dashboard", label: "Dashboard" },
     ...(showUpload ? [{ href: "/upload", label: "Upload" }] : []),
+    ...(showUpload ? [{ href: "/flags", label: "Flags" }] : []),
     ...(showAdmin ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 

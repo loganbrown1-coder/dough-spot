@@ -48,6 +48,7 @@ export interface Capture {
   flagged: boolean;
   flagComment: string | null;
   flaggedBy: string | null;
+  flaggedByEmail: string | null;
   flaggedAt: string | null;
 }
 
