@@ -8,6 +8,7 @@ import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
 import { createSite, getSite, updateSiteName } from "@/lib/data/sites";
 import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
 import { ROLE_LABELS } from "@/lib/roleLabels";
+import { imageExtension } from "@/lib/imageUpload";
 import type { Role } from "@/types";
 
 export interface AdminFormState {
@@ -91,14 +92,13 @@ export async function createMenuItemAction(
   if (!(photo instanceof File) || photo.size === 0) {
     return { error: "A reference photo is required." };
   }
-  if (!photo.type.startsWith("image/")) {
-    return { error: "The reference photo must be an image." };
+  const ext = imageExtension(photo);
+  if (!ext) {
+    return { error: "The reference photo must be a JPEG, PNG, WebP, or GIF image." };
   }
   if (!(await getBrand(brandId))) return { error: "Unknown brand." };
 
   const admin = getSupabaseAdmin();
-  const parts = photo.name.split(".");
-  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "jpg";
   const objectPath = `${brandId}/${crypto.randomUUID()}.${ext}`;
   const buffer = Buffer.from(await photo.arrayBuffer());
 

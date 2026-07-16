@@ -261,15 +261,72 @@ create policy "captures_update" on captures for update using (
   site_id in (select accessible_site_ids())
 );
 
+-- captures_update above is intentionally row-scoped only (row level
+-- security can't restrict individual columns) - this trigger is the
+-- column-level enforcement it depends on. A customer (ops/site_manager)
+-- may only ever touch the flag columns, and only to raise a brand-new
+-- flag (false -> true) - never resolving one, re-flagging an already-
+-- flagged photo, or editing an existing flag (all agent/super_admin
+-- only, see resolveFlagAction). They also can't attribute a flag to
+-- anyone but themselves - flagged_by/flagged_by_email are forced to
+-- their own session regardless of what they submit. Without this, a
+-- customer could bypass the server actions entirely by calling the
+-- Supabase API directly with their own session and rewrite any column.
+create or replace function public.enforce_capture_update_columns()
+returns trigger
+language plpgsql set search_path = public as $$
+declare
+  caller_role text;
+begin
+  select role into caller_role from current_profile();
+
+  if caller_role in ('agent', 'super_admin') then
+    return new;
+  end if;
+
+  if new.site_id is distinct from old.site_id
+    or new.date is distinct from old.date
+    or new.day_part_id is distinct from old.day_part_id
+    or new.sequence is distinct from old.sequence
+    or new.image_url is distinct from old.image_url
+    or new.captured_at is distinct from old.captured_at
+    or new.source is distinct from old.source
+    or new.menu_item_id is distinct from old.menu_item_id
+    or new.rating is distinct from old.rating
+  then
+    raise exception 'Only OpSpot agents and admins can change this field.';
+  end if;
+
+  if not (old.flagged = false and new.flagged = true) then
+    raise exception 'Only OpSpot agents and admins can change a flag''s status.';
+  end if;
+
+  new.flagged_by := auth.uid();
+  new.flagged_by_email := auth.jwt() ->> 'email';
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_capture_update_columns on captures;
+create trigger trg_enforce_capture_update_columns
+  before update on captures
+  for each row
+  execute function public.enforce_capture_update_columns();
+
 -- capture_events: an append-only audit trail, so an admin can open a
 -- site + date and see who uploaded/replaced/deleted/flagged what, and
 -- when. Only super_admin can read it; anyone who can act on a capture
--- can write an event about that action.
+-- can write an event about that action, but only attributed to
+-- themselves - actor_id/actor_email must match the caller, so a customer
+-- can't forge an entry blaming someone else for an action.
 create policy "capture_events_select" on capture_events for select using (
   (select role from current_profile()) = 'super_admin'
 );
 create policy "capture_events_insert" on capture_events for insert with check (
   site_id in (select accessible_site_ids())
+  and actor_id = auth.uid()
+  and actor_email = (auth.jwt() ->> 'email')
 );
 
 -- profiles: a user can always read their own row; super_admin can read

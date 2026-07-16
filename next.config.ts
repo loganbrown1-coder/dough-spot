@@ -10,6 +10,19 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "15mb",
     },
   },
+  async headers() {
+    return [
+      {
+        // Every route - this is an authenticated dashboard, so nothing in
+        // it should ever be framed by another site (clickjacking).
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none';" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

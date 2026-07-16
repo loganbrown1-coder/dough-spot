@@ -16,6 +16,7 @@ import {
 } from "@/lib/data/captures";
 import { logCaptureEvent, listCaptureEvents } from "@/lib/data/captureEvents";
 import { objectPathFromStoredUrl } from "@/lib/storagePaths";
+import { imageExtension } from "@/lib/imageUpload";
 import type { Capture, CaptureEvent } from "@/types";
 
 export interface UploadState {
@@ -25,19 +26,7 @@ export interface UploadState {
 
 const BUCKET = "captures";
 const DAY_PART_IDS = new Set(["A", "B", "C"]);
-const MIME_EXTENSIONS: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
-
-function extensionFor(file: File): string {
-  if (MIME_EXTENSIONS[file.type]) return MIME_EXTENSIONS[file.type];
-  const parts = file.name.split(".");
-  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "";
-  return ext || "jpg";
-}
+const IMAGE_TYPE_ERROR = "Files must be JPEG, PNG, WebP, or GIF images.";
 
 /**
  * Uploads reuse the same object path (site/date/day part/sequence) every
@@ -96,8 +85,8 @@ export async function uploadCapturesAction(
     if (!(file instanceof File) || file.size === 0) {
       return { error: "Please select all three photos." };
     }
-    if (!file.type.startsWith("image/")) {
-      return { error: "All three files must be images." };
+    if (!imageExtension(file)) {
+      return { error: IMAGE_TYPE_ERROR };
     }
     files.push(file);
     const menuItemId = String(formData.get(`menuItem${files.length}`) ?? "");
@@ -121,7 +110,8 @@ export async function uploadCapturesAction(
   for (let i = 0; i < files.length; i++) {
     const sequence = i + 1;
     const file = files[i];
-    const ext = extensionFor(file);
+    // Already validated in the loop above that built `files`.
+    const ext = imageExtension(file)!;
     const objectPath = `${folder}/${sequence}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -250,7 +240,8 @@ export async function replaceCaptureImageAction(
   if (!(await canAccessSite(siteId))) {
     return { error: "You do not have access to that site." };
   }
-  if (!file.type.startsWith("image/")) return { error: "File must be an image." };
+  const ext = imageExtension(file);
+  if (!ext) return { error: IMAGE_TYPE_ERROR };
 
   const admin = getSupabaseAdmin();
   const folder = `${siteId}/${date}/${dayPartId}`;
@@ -263,7 +254,6 @@ export async function replaceCaptureImageAction(
     await admin.storage.from(BUCKET).remove(stale.map((f) => `${folder}/${f.name}`));
   }
 
-  const ext = extensionFor(file);
   const objectPath = `${folder}/${sequence}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
