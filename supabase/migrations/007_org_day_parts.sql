@@ -52,19 +52,19 @@ cross join day_parts dp;
 alter table captures add column new_day_part_id uuid;
 update captures c
 set new_day_part_id = dpn.id
-from day_parts_new dpn
-join sites s on s.id = c.site_id
-join brands b on b.id = s.brand_id
-where dpn.organisation_id = b.organisation_id
+from day_parts_new dpn, sites s, brands b
+where s.id = c.site_id
+  and b.id = s.brand_id
+  and dpn.organisation_id = b.organisation_id
   and dpn.legacy_code = c.day_part_id;
 
 alter table capture_events add column new_day_part_id uuid;
 update capture_events ce
 set new_day_part_id = dpn.id
-from day_parts_new dpn
-join sites s on s.id = ce.site_id
-join brands b on b.id = s.brand_id
-where dpn.organisation_id = b.organisation_id
+from day_parts_new dpn, sites s, brands b
+where s.id = ce.site_id
+  and b.id = s.brand_id
+  and dpn.organisation_id = b.organisation_id
   and dpn.legacy_code = ce.day_part_id;
 
 -- 4. Safety check - abort the whole migration (rolling back everything
