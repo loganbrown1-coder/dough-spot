@@ -4,12 +4,15 @@ import { listBrandsByOrganisation } from "@/lib/data/brands";
 import { listSites } from "@/lib/data/sites";
 import { listProfiles } from "@/lib/data/profiles";
 import { listMenuItems } from "@/lib/data/menuItems";
+import { listDayPartsByOrganisation } from "@/lib/data/dayParts";
 import { renameBrandAction, renameSiteAction, renameMenuItemAction } from "@/lib/actions/admin";
 import CreateOrganisationForm from "@/app/components/CreateOrganisationForm";
 import OrgSwitcher from "@/app/components/OrgSwitcher";
 import AddBrandForm from "@/app/components/AddBrandForm";
 import AddSiteForm from "@/app/components/AddSiteForm";
 import AddMenuItemForm from "@/app/components/AddMenuItemForm";
+import AddDayPartForm from "@/app/components/AddDayPartForm";
+import DayPartRow from "@/app/components/DayPartRow";
 import InviteUserForm from "@/app/components/InviteUserForm";
 import InviteOpspotUserForm from "@/app/components/InviteOpspotUserForm";
 import ActivityLog from "@/app/components/ActivityLog";
@@ -136,10 +139,11 @@ export default async function AdminPage({
   if (selectedOrgId) {
     const selectedOrg = await getOrganisation(selectedOrgId);
 
-    const [brands, allSites, allMenuItems] = await Promise.all([
+    const [brands, allSites, allMenuItems, dayParts] = await Promise.all([
       listBrandsByOrganisation(selectedOrgId),
       listSites(),
       listMenuItems(),
+      listDayPartsByOrganisation(selectedOrgId),
     ]);
 
     const brandIds = new Set(brands.map((b) => b.id));
@@ -196,6 +200,31 @@ export default async function AdminPage({
                 brandNameById.get(s.brandId) ?? "-",
               ])}
             />
+            <SectionCard title="Add a day part">
+              <AddDayPartForm organisationId={selectedOrgId} />
+            </SectionCard>
+            <div className="overflow-hidden rounded-brand border border-border-default bg-white">
+              <div className="border-b border-border-default bg-app px-5 py-3.5 text-[13px] font-bold text-navy">
+                Day parts
+              </div>
+              {dayParts.length === 0 ? (
+                <p className="px-5 py-4 text-[13px] text-secondary">No day parts yet.</p>
+              ) : (
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="text-left font-bold text-muted">
+                      <th className="px-5 py-2.5">Label</th>
+                      <th className="px-5 py-2.5">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayParts.map((dp) => (
+                      <DayPartRow key={dp.id} dayPart={dp} />
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </>
         ),
       },
@@ -282,7 +311,7 @@ export default async function AdminPage({
         content: (
           <>
             {banner}
-            <ActivityLog sites={sites} />
+            <ActivityLog sites={sites} dayParts={dayParts} />
           </>
         ),
       }

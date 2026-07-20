@@ -8,6 +8,7 @@ import { todayStr } from "@/lib/date";
 import { groupSitesByBrand } from "@/lib/siteGroups";
 import DashboardFilters from "@/app/components/DashboardFilters";
 import SiteSection from "@/app/components/SiteSection";
+import type { DayPart, Site } from "@/types";
 
 export default async function DashboardPage({
   searchParams,
@@ -23,18 +24,37 @@ export default async function DashboardPage({
     listMenuItems(),
     listDayParts(),
   ]);
+
+  // Day parts are per-organisation now, so which ones apply depends on
+  // which site's organisation we're looking at - resolved per site via
+  // its brand, rather than a single shared list like before.
+  const orgIdByBrandId = new Map(brands.map((b) => [b.id, b.organisationId]));
+  const dayPartsByOrgId = new Map<string, DayPart[]>();
+  for (const dayPart of allDayParts) {
+    const existing = dayPartsByOrgId.get(dayPart.organisationId);
+    if (existing) existing.push(dayPart);
+    else dayPartsByOrgId.set(dayPart.organisationId, [dayPart]);
+  }
+  function dayPartsForSite(site: Site): DayPart[] {
+    const orgId = orgIdByBrandId.get(site.brandId);
+    return orgId ? dayPartsByOrgId.get(orgId) ?? [] : [];
+  }
+
   // Empty site param (the default) means "every site" - an overview -
   // rather than always jumping straight into one site.
   const selectedSiteId =
     params.site && sites.some((s) => s.id === params.site) ? params.site : "";
   const selectedDate = params.date || todayStr();
+  const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : undefined;
+  // The day part filter only applies (and only appears, see
+  // DashboardFilters) once a single site is selected - otherwise there's
+  // no single organisation's day parts to filter by.
+  const siteDayParts = selectedSite ? dayPartsForSite(selectedSite) : [];
   const selectedDayPartId =
-    params.dayPart && allDayParts.some((dp) => dp.id === params.dayPart)
-      ? params.dayPart
-      : "";
+    params.dayPart && siteDayParts.some((dp) => dp.id === params.dayPart) ? params.dayPart : "";
   const visibleDayParts = selectedDayPartId
-    ? allDayParts.filter((dp) => dp.id === selectedDayPartId)
-    : allDayParts;
+    ? siteDayParts.filter((dp) => dp.id === selectedDayPartId)
+    : siteDayParts;
   const flaggedOnly = params.flagged === "1";
 
   const allCaptures = await listCapturesByDate(selectedDate);
@@ -77,7 +97,7 @@ export default async function DashboardPage({
             <DashboardFilters
               sites={sites}
               brands={brands}
-              dayParts={allDayParts}
+              dayParts={siteDayParts}
               selectedSiteId={selectedSiteId}
               selectedDate={selectedDate}
               selectedDayPartId={selectedDayPartId}
@@ -108,7 +128,7 @@ export default async function DashboardPage({
                     <SiteSection
                       key={site.id}
                       site={site}
-                      dayParts={visibleDayParts}
+                      dayParts={dayPartsForSite(site)}
                       captures={capturesBySite.get(site.id) ?? []}
                       date={selectedDate}
                       menuItems={menuItems}

@@ -77,21 +77,27 @@ export default function DashboardFilters({
           className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
         />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[13px] font-bold text-body">Day part</label>
-        <select
-          value={selectedDayPartId}
-          onChange={(e) => updateParams({ dayPart: e.target.value })}
-          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
-        >
-          <option value="">All day parts</option>
-          {dayParts.map((dp) => (
-            <option key={dp.id} value={dp.id}>
-              {dp.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {dayParts.length > 0 && (
+        // Day parts are per-organisation - this only makes sense (and
+        // only gets passed any options) once a single site is selected,
+        // since "all sites" can span organisations with different day
+        // parts entirely.
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[13px] font-bold text-body">Day part</label>
+          <select
+            value={selectedDayPartId}
+            onChange={(e) => updateParams({ dayPart: e.target.value })}
+            className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
+          >
+            <option value="">All day parts</option>
+            {dayParts.map((dp) => (
+              <option key={dp.id} value={dp.id}>
+                {dp.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="flex flex-col justify-end gap-1.5">
         <label className="flex h-10 items-center gap-2 text-sm font-semibold text-body">
           <input

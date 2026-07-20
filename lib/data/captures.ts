@@ -265,3 +265,14 @@ export async function resolveFlag(captureId: string): Promise<void> {
     .eq("id", captureId);
   if (error) throw error;
 }
+
+/** Used by deleteDayPartAction to give a clear error instead of a raw foreign key violation. */
+export async function countCapturesForDayPart(dayPartId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("captures")
+    .select("*", { count: "exact", head: true })
+    .eq("day_part_id", dayPartId);
+  if (error) throw error;
+  return count ?? 0;
+}

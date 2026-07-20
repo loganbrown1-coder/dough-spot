@@ -7,9 +7,27 @@ import { createOrganisation, getOrganisation, updateOrganisationRetention } from
 import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
 import { createSite, getSite, updateSiteName } from "@/lib/data/sites";
 import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
+import {
+  createDayPart,
+  updateDayPart,
+  deleteDayPart,
+  listDayPartsByOrganisation,
+} from "@/lib/data/dayParts";
+import { countCapturesForDayPart } from "@/lib/data/captures";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import { imageExtension } from "@/lib/imageUpload";
 import type { Role } from "@/types";
+
+const MAX_DAY_PARTS = 6;
+
+// Every organisation starts with these, matching what the app used to
+// share globally before day parts became per-organisation - editable
+// afterwards from the same tab (see createDayPartAction etc. below).
+const DEFAULT_DAY_PARTS = [
+  { label: "Day Part A", startTime: "11:00", endTime: "16:00" },
+  { label: "Day Part B", startTime: "16:00", endTime: "21:00" },
+  { label: "Day Part C", startTime: "21:00", endTime: "23:00" },
+];
 
 export interface AdminFormState {
   error?: string;
@@ -36,7 +54,11 @@ export async function createOrganisationAction(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Organisation name is required." };
 
-  await createOrganisation(name);
+  const org = await createOrganisation(name);
+  for (const dayPart of DEFAULT_DAY_PARTS) {
+    await createDayPart({ organisationId: org.id, ...dayPart });
+  }
+
   revalidatePath("/admin");
   return { success: true };
 }
@@ -164,6 +186,96 @@ export async function renameMenuItemAction(
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to rename menu item." };
+  }
+}
+
+function validateDayPartTimes(startTime: string, endTime: string): string | null {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) {
+    return "Times must be in HH:MM format.";
+  }
+  return null;
+}
+
+export interface DayPartFormState {
+  error?: string;
+  success?: boolean;
+}
+
+export async function createDayPartAction(
+  _prevState: DayPartFormState,
+  formData: FormData
+): Promise<DayPartFormState> {
+  await requireSuperAdmin();
+
+  const organisationId = String(formData.get("organisationId") ?? "");
+  const label = String(formData.get("label") ?? "").trim();
+  const startTime = String(formData.get("startTime") ?? "");
+  const endTime = String(formData.get("endTime") ?? "");
+
+  if (!organisationId || !label) return { error: "Label is required." };
+  const timeError = validateDayPartTimes(startTime, endTime);
+  if (timeError) return { error: timeError };
+
+  const existing = await listDayPartsByOrganisation(organisationId);
+  if (existing.length >= MAX_DAY_PARTS) {
+    return { error: `An organisation can have at most ${MAX_DAY_PARTS} day parts.` };
+  }
+
+  await createDayPart({ organisationId, label, startTime, endTime });
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+export async function updateDayPartAction(
+  id: string,
+  label: string,
+  startTime: string,
+  endTime: string
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!label.trim()) return { error: "Label can't be empty." };
+  const timeError = validateDayPartTimes(startTime, endTime);
+  if (timeError) return { error: timeError };
+
+  try {
+    await updateDayPart(id, { label: label.trim(), startTime, endTime });
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update day part." };
+  }
+}
+
+/**
+ * Refuses to go below 1 day part for an organisation, and refuses to
+ * remove one that already has photos against it (captures.day_part_id is
+ * "on delete restrict" at the database level too - this just gives a
+ * clearer error than the raw foreign key violation).
+ */
+export async function deleteDayPartAction(
+  id: string,
+  organisationId: string
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const existing = await listDayPartsByOrganisation(organisationId);
+  if (existing.length <= 1) {
+    return { error: "An organisation must have at least 1 day part." };
+  }
+
+  const captureCount = await countCapturesForDayPart(id);
+  if (captureCount > 0) {
+    return {
+      error: `Can't remove — ${captureCount} photo${captureCount === 1 ? "" : "s"} exist under this day part.`,
+    };
+  }
+
+  try {
+    await deleteDayPart(id);
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove day part." };
   }
 }
 

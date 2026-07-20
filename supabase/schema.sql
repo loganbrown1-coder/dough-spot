@@ -33,8 +33,13 @@ create table if not exists sites (
   name text not null
 );
 
+-- Configurable per organisation (1-6, any label/times) via Admin > a
+-- selected organisation's Brands & sites tab - see lib/actions/admin.ts.
+-- A new organisation is seeded with the same 3 default day parts every
+-- organisation used to share globally, editable from there afterwards.
 create table if not exists day_parts (
-  id text primary key, -- 'A' | 'B' | 'C'
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references organisations(id) on delete cascade,
   label text not null,
   start_time text not null,
   end_time text not null
@@ -52,7 +57,9 @@ create table if not exists captures (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references sites(id) on delete cascade,
   date date not null,
-  day_part_id text not null references day_parts(id),
+  -- "on delete restrict" (the default) means a day part with any photos
+  -- against it can't be deleted - see deleteDayPartAction.
+  day_part_id uuid not null references day_parts(id),
   sequence int not null,
   image_url text not null,
   captured_at timestamptz not null default now(),
@@ -104,7 +111,7 @@ create table if not exists capture_events (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references sites(id) on delete cascade,
   date date not null,
-  day_part_id text not null references day_parts(id),
+  day_part_id uuid not null references day_parts(id),
   sequence int not null,
   capture_id uuid references captures(id) on delete set null,
   actor_id uuid references profiles(id) on delete set null,
@@ -117,6 +124,7 @@ create table if not exists capture_events (
 create index if not exists idx_brands_org on brands(organisation_id);
 create index if not exists idx_menu_items_brand on menu_items(brand_id);
 create index if not exists idx_sites_brand on sites(brand_id);
+create index if not exists idx_day_parts_org on day_parts(organisation_id);
 create index if not exists idx_captures_lookup on captures(site_id, date, day_part_id);
 create index if not exists idx_capture_events_lookup on capture_events(site_id, date, created_at desc);
 create index if not exists idx_profiles_org on profiles(organisation_id);
@@ -178,6 +186,25 @@ $$;
 
 grant execute on function public.accessible_brand_ids() to authenticated;
 
+-- Every organisation the current user can see. Same shape again - used to
+-- scope day_parts, which belong directly to an organisation rather than a
+-- brand or site.
+create or replace function public.accessible_organisation_ids()
+returns setof uuid
+language sql security definer stable set search_path = public as $$
+  select o.id
+  from organisations o
+  where (select role from current_profile()) in ('super_admin', 'agent')
+     or o.id in (select organisation_id from brands where id = (select brand_id from current_profile()))
+     or o.id in (
+       select b.organisation_id from brands b
+       join sites s on s.brand_id = b.id
+       where s.id = (select site_id from current_profile())
+     )
+$$;
+
+grant execute on function public.accessible_organisation_ids() to authenticated;
+
 alter table organisations enable row level security;
 alter table brands enable row level security;
 alter table menu_items enable row level security;
@@ -235,8 +262,21 @@ create policy "sites_update" on sites for update using (
   (select role from current_profile()) = 'super_admin'
 );
 
--- day_parts: fixed global reference data, readable by any signed-in user.
-create policy "day_parts_select" on day_parts for select using (auth.uid() is not null);
+-- day_parts: readable by anyone in that organisation's scope; only
+-- super_admin adds/edits/removes day parts (admin-page only), same as
+-- brands/sites/menu_items.
+create policy "day_parts_select" on day_parts for select using (
+  organisation_id in (select accessible_organisation_ids())
+);
+create policy "day_parts_insert" on day_parts for insert with check (
+  (select role from current_profile()) = 'super_admin'
+);
+create policy "day_parts_update" on day_parts for update using (
+  (select role from current_profile()) = 'super_admin'
+);
+create policy "day_parts_delete" on day_parts for delete using (
+  (select role from current_profile()) = 'super_admin'
+);
 
 -- captures: viewing follows the same scoping as sites. Uploading,
 -- replacing, and deleting is agent/super_admin only - a customer

@@ -15,6 +15,9 @@ import {
   type NewCaptureImage,
 } from "@/lib/data/captures";
 import { logCaptureEvent, listCaptureEvents } from "@/lib/data/captureEvents";
+import { getDayPart } from "@/lib/data/dayParts";
+import { getSite } from "@/lib/data/sites";
+import { getBrand } from "@/lib/data/brands";
 import { objectPathFromStoredUrl } from "@/lib/storagePaths";
 import { imageExtension } from "@/lib/imageUpload";
 import type { Capture, CaptureEvent } from "@/types";
@@ -25,8 +28,25 @@ export interface UploadState {
 }
 
 const BUCKET = "captures";
-const DAY_PART_IDS = new Set(["A", "B", "C"]);
 const IMAGE_TYPE_ERROR = "Files must be JPEG, PNG, WebP, or GIF images.";
+
+/**
+ * Confirms dayPartId actually exists and belongs to the same organisation
+ * as siteId - day parts are per-organisation now, so a mismatch would
+ * otherwise silently create a capture whose day part belongs to a
+ * different organisation than its site.
+ */
+async function dayPartMatchesSite(dayPartId: string, siteId: string): Promise<boolean> {
+  const dayPart = await getDayPart(dayPartId);
+  if (!dayPart) return false;
+
+  const site = await getSite(siteId);
+  if (!site) return false;
+  const brand = await getBrand(site.brandId);
+  if (!brand) return false;
+
+  return dayPart.organisationId === brand.organisationId;
+}
 
 /**
  * Uploads reuse the same object path (site/date/day part/sequence) every
@@ -68,14 +88,14 @@ export async function uploadCapturesAction(
   if (!siteId || !date || !dayPartId) {
     return { error: "Site, date, and day part are all required." };
   }
-  if (!DAY_PART_IDS.has(dayPartId)) {
-    return { error: "Invalid day part." };
-  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { error: "Invalid date." };
   }
   if (!(await canAccessSite(siteId))) {
     return { error: "You do not have access to that site." };
+  }
+  if (!(await dayPartMatchesSite(dayPartId, siteId))) {
+    return { error: "Invalid day part for this site." };
   }
 
   const files: File[] = [];

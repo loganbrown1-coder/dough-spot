@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCaptureEventsAction } from "@/lib/actions/captures";
 import { todayStr } from "@/lib/date";
-import type { CaptureEvent, CaptureEventAction, Site } from "@/types";
-
-const DAY_PART_LABELS: Record<string, string> = {
-  A: "Day Part A",
-  B: "Day Part B",
-  C: "Day Part C",
-};
+import type { CaptureEvent, CaptureEventAction, DayPart, Site } from "@/types";
 
 const ACTION_LABELS: Record<CaptureEventAction, string> = {
   upload: "Uploaded",
@@ -29,7 +23,8 @@ function formatTime(iso: string): string {
   });
 }
 
-export default function ActivityLog({ sites }: { sites: Site[] }) {
+export default function ActivityLog({ sites, dayParts }: { sites: Site[]; dayParts: DayPart[] }) {
+  const dayPartLabelById = new Map(dayParts.map((dp) => [dp.id, dp.label]));
   const [selectedSiteId, setSelectedSiteId] = useState(sites[0]?.id ?? "");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [events, setEvents] = useState<CaptureEvent[]>([]);
@@ -107,7 +102,7 @@ export default function ActivityLog({ sites }: { sites: Site[] }) {
                   <td className="px-5 py-2.5 text-secondary">{event.actorEmail}</td>
                   <td className="px-5 py-2.5 text-secondary">{ACTION_LABELS[event.action]}</td>
                   <td className="px-5 py-2.5 text-secondary">
-                    {DAY_PART_LABELS[event.dayPartId] ?? event.dayPartId}, photo {event.sequence}
+                    {dayPartLabelById.get(event.dayPartId) ?? "Unknown day part"}, photo {event.sequence}
                   </td>
                   <td className="px-5 py-2.5 text-secondary">{event.detail ?? "-"}</td>
                 </tr>

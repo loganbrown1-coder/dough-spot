@@ -20,7 +20,8 @@ export interface Site {
 }
 
 export interface DayPart {
-  id: string; // 'A' | 'B' | 'C'
+  id: string;
+  organisationId: string;
   label: string;
   startTime: string; // 'HH:MM'
   endTime: string; // 'HH:MM'

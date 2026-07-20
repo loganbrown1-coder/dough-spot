@@ -135,11 +135,27 @@ export default function UploadForm({
   const groups = groupSitesByBrand(sites, brands);
   const [selectedSiteId, setSelectedSiteId] = useState(defaultSiteId ?? sites[0]?.id);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
-  const [selectedDayPartId, setSelectedDayPartId] = useState(dayParts[0]?.id ?? "");
 
   const selectedBrandId = sites.find((s) => s.id === selectedSiteId)?.brandId;
+  const selectedOrgId = brands.find((b) => b.id === selectedBrandId)?.organisationId;
   const availableMenuItems = menuItems.filter((m) => m.brandId === selectedBrandId);
-  const selectedDayPart = dayParts.find((dp) => dp.id === selectedDayPartId);
+  // Day parts are per-organisation, so which ones are selectable changes
+  // with the selected site.
+  const availableDayParts = dayParts.filter((dp) => dp.organisationId === selectedOrgId);
+  const [selectedDayPartId, setSelectedDayPartId] = useState(availableDayParts[0]?.id ?? "");
+  const selectedDayPart = availableDayParts.find((dp) => dp.id === selectedDayPartId);
+
+  // The selected day part may not exist for a newly-selected site's
+  // organisation (different orgs have different day parts) - fall back to
+  // that organisation's first one whenever the available set changes out
+  // from under the current selection.
+  useEffect(() => {
+    if (!availableDayParts.some((dp) => dp.id === selectedDayPartId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedDayPartId(availableDayParts[0]?.id ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrgId]);
 
   const [existingCaptures, setExistingCaptures] = useState<Capture[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(false);
@@ -218,7 +234,7 @@ export default function UploadForm({
             required
             className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
           >
-            {dayParts.map((dp) => (
+            {availableDayParts.map((dp) => (
               <option key={dp.id} value={dp.id}>
                 {dp.label} ({dp.startTime}-{dp.endTime})
               </option>

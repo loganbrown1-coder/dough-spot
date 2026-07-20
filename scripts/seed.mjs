@@ -61,11 +61,41 @@ async function uploadPlaceholderImage(objectPath, label, colorSeed) {
   return data.publicUrl;
 }
 
-async function seedCapturesForDayPart(site, date, dayPartId, seedOffset) {
+// Every organisation gets its own copy of these 3 day parts (day parts are
+// scoped per organisation, not shared globally - see migration 007).
+const DEFAULT_DAY_PARTS = [
+  { code: "A", label: "Day Part A", start_time: "11:00", end_time: "16:00" },
+  { code: "B", label: "Day Part B", start_time: "16:00", end_time: "21:00" },
+  { code: "C", label: "Day Part C", start_time: "21:00", end_time: "23:00" },
+];
+
+/** Inserts the default day parts for one organisation, returns {A: id, B: id, C: id}. */
+async function seedDayPartsForOrg(organisationId) {
+  const { data, error } = await supabase
+    .from("day_parts")
+    .insert(
+      DEFAULT_DAY_PARTS.map((dp) => ({
+        organisation_id: organisationId,
+        label: dp.label,
+        start_time: dp.start_time,
+        end_time: dp.end_time,
+      }))
+    )
+    .select("*");
+  if (error) throw error;
+
+  const byCode = {};
+  DEFAULT_DAY_PARTS.forEach(({ code, label }, i) => {
+    byCode[code] = data.find((row) => row.label === label)?.id ?? data[i].id;
+  });
+  return byCode;
+}
+
+async function seedCapturesForDayPart(site, date, dayPartCode, dayPartId, seedOffset) {
   const rows = [];
   for (let sequence = 1; sequence <= 3; sequence++) {
-    const label = `${site.name} - ${dayPartId}${sequence} - ${date}`;
-    const objectPath = `seed/${site.id}/${date}/${dayPartId}/${sequence}.svg`;
+    const label = `${site.name} - ${dayPartCode}${sequence} - ${date}`;
+    const objectPath = `seed/${site.id}/${date}/${dayPartCode}/${sequence}.svg`;
     const imageUrl = await uploadPlaceholderImage(objectPath, label, seedOffset + sequence);
     rows.push({
       site_id: site.id,
@@ -110,14 +140,6 @@ async function main() {
     return;
   }
 
-  console.log("Seeding day parts...");
-  const { error: dayPartError } = await supabase.from("day_parts").insert([
-    { id: "A", label: "Day Part A", start_time: "11:00", end_time: "16:00" },
-    { id: "B", label: "Day Part B", start_time: "16:00", end_time: "21:00" },
-    { id: "C", label: "Day Part C", start_time: "21:00", end_time: "23:00" },
-  ]);
-  if (dayPartError) throw dayPartError;
-
   // --- Organisation 1: Fireaway -------------------------------------
   console.log("Seeding Fireaway organisation...");
   const { data: fireawayOrg, error: fireawayOrgError } = await supabase
@@ -126,6 +148,9 @@ async function main() {
     .select("*")
     .single();
   if (fireawayOrgError) throw fireawayOrgError;
+
+  console.log("Seeding Fireaway day parts...");
+  const fireawayDayParts = await seedDayPartsForOrg(fireawayOrg.id);
 
   const { data: fireawayBrand, error: fireawayBrandError } = await supabase
     .from("brands")
@@ -157,12 +182,12 @@ async function main() {
   const todayStr = formatDate(today);
   const yesterdayStr = formatDate(yesterday);
 
-  await seedCapturesForDayPart(camden, todayStr, "A", 0);
-  await seedCapturesForDayPart(camden, todayStr, "B", 3);
-  await seedCapturesForDayPart(camden, yesterdayStr, "A", 6);
-  await seedCapturesForDayPart(camden, yesterdayStr, "B", 9);
-  await seedCapturesForDayPart(camden, yesterdayStr, "C", 12);
-  await seedCapturesForDayPart(shoreditch, todayStr, "A", 15);
+  await seedCapturesForDayPart(camden, todayStr, "A", fireawayDayParts.A, 0);
+  await seedCapturesForDayPart(camden, todayStr, "B", fireawayDayParts.B, 3);
+  await seedCapturesForDayPart(camden, yesterdayStr, "A", fireawayDayParts.A, 6);
+  await seedCapturesForDayPart(camden, yesterdayStr, "B", fireawayDayParts.B, 9);
+  await seedCapturesForDayPart(camden, yesterdayStr, "C", fireawayDayParts.C, 12);
+  await seedCapturesForDayPart(shoreditch, todayStr, "A", fireawayDayParts.A, 15);
 
   // --- Organisation 2: Wildfire Grill (proves tenant isolation) -----
   console.log("Seeding Wildfire Grill organisation...");
@@ -172,6 +197,9 @@ async function main() {
     .select("*")
     .single();
   if (wildfireOrgError) throw wildfireOrgError;
+
+  console.log("Seeding Wildfire Grill day parts...");
+  const wildfireDayParts = await seedDayPartsForOrg(wildfireOrg.id);
 
   const { data: wildfireBrand, error: wildfireBrandError } = await supabase
     .from("brands")
@@ -193,7 +221,7 @@ async function main() {
   });
 
   console.log("Seeding Wildfire Grill sample captures...");
-  await seedCapturesForDayPart(wildfireSite, todayStr, "A", 18);
+  await seedCapturesForDayPart(wildfireSite, todayStr, "A", wildfireDayParts.A, 18);
 
   // --- OpSpot's own accounts (unrestricted across every organisation) --
   console.log("Seeding OpSpot team accounts...");

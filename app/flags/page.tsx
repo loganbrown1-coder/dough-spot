@@ -4,28 +4,25 @@ import { listSites } from "@/lib/data/sites";
 import { listBrands } from "@/lib/data/brands";
 import { listOrganisations } from "@/lib/data/organisations";
 import { listMenuItems } from "@/lib/data/menuItems";
+import { listDayParts } from "@/lib/data/dayParts";
 import FlaggedInbox, { type FlaggedItem } from "@/app/components/FlaggedInbox";
-
-const DAY_PART_LABELS: Record<string, string> = {
-  A: "Day Part A",
-  B: "Day Part B",
-  C: "Day Part C",
-};
 
 export default async function FlagsPage() {
   await requireUploader();
 
-  const [captures, sites, brands, organisations, menuItems] = await Promise.all([
+  const [captures, sites, brands, organisations, menuItems, dayParts] = await Promise.all([
     listFlaggedCaptures(),
     listSites(),
     listBrands(),
     listOrganisations(),
     listMenuItems(),
+    listDayParts(),
   ]);
 
   const siteById = new Map(sites.map((s) => [s.id, s]));
   const brandById = new Map(brands.map((b) => [b.id, b]));
   const orgById = new Map(organisations.map((o) => [o.id, o]));
+  const dayPartLabelById = new Map(dayParts.map((dp) => [dp.id, dp.label]));
   const menuItemsByBrandId = new Map<string, typeof menuItems>();
   for (const item of menuItems) {
     const existing = menuItemsByBrandId.get(item.brandId);
@@ -41,7 +38,7 @@ export default async function FlagsPage() {
       capture,
       siteName: site?.name ?? "Unknown site",
       orgName: org?.name,
-      dayPartLabel: DAY_PART_LABELS[capture.dayPartId] ?? capture.dayPartId,
+      dayPartLabel: dayPartLabelById.get(capture.dayPartId) ?? "Unknown day part",
       menuItems: brand ? menuItemsByBrandId.get(brand.id) ?? [] : [],
     };
   });
