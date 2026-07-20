@@ -28,16 +28,6 @@ export default async function LoginPage() {
             <LoginForm />
           </div>
         </div>
-
-        <div className="rounded-brand border border-border-default bg-white p-4 text-xs text-secondary">
-          <p className="mb-1 font-bold text-body">Test accounts (POC)</p>
-          <p>manager@fireaway.test - site manager</p>
-          <p>ops@fireaway.test - ops</p>
-          <p>admin@fireaway.test - org admin</p>
-          <p>super@opspot.test - super admin (all organisations)</p>
-          <p>admin@wildfiregrill.test - org admin, separate organisation</p>
-          <p className="mt-1">password: Password123!</p>
-        </div>
       </div>
     </div>
   );
