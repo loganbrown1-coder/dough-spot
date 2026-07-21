@@ -279,7 +279,7 @@ export default function CaptureTile({
   }
 
   const canManage = viewerRole === "agent" || viewerRole === "super_admin";
-  const canFlag = viewerRole === "ops" || viewerRole === "site_manager";
+  const canFlag = viewerRole === "ops" || viewerRole === "site_manager" || viewerRole === "super_admin";
   const alt = `${dayPartLabel} photo ${sequence}`;
   const menuItemName = menuItems.find((m) => m.id === capture.menuItemId)?.name;
 
