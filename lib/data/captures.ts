@@ -86,6 +86,32 @@ export async function listCapturesByDate(date: string): Promise<Capture[]> {
 }
 
 /**
+ * Captures across every date rather than one - the dashboard's "All
+ * dates" view, optionally scoped to a single site. Capped to the most
+ * recent rows rather than fetched unbounded: retention already purges
+ * old data, and this view is for browsing recent history, not a full
+ * export - picking an exact date still gets you precise results via
+ * listCaptures/listCapturesByDate.
+ */
+const ALL_DATES_ROW_LIMIT = 1500;
+
+export async function listCapturesAllDates(params: { siteId?: string }): Promise<Capture[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("captures")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("site_id")
+    .order("day_part_id")
+    .order("sequence")
+    .limit(ALL_DATES_ROW_LIMIT);
+  if (params.siteId) query = query.eq("site_id", params.siteId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return withSignedUrls((data ?? []).map(rowToCapture));
+}
+
+/**
  * Every currently-flagged capture the caller can see, across every site
  * and date - the /flags inbox. Not scoped to "today" like the dashboard,
  * since a flag raised days ago is still unresolved until someone acts on

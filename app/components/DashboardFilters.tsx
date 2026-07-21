@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { groupSitesByBrand } from "@/lib/siteGroups";
+import { todayStr } from "@/lib/date";
 import type { Brand, DayPart, Site } from "@/types";
 
 export default function DashboardFilters({
@@ -10,6 +11,7 @@ export default function DashboardFilters({
   dayParts,
   selectedSiteId,
   selectedDate,
+  allDates,
   selectedDayPartId,
   flaggedOnly,
 }: {
@@ -18,6 +20,7 @@ export default function DashboardFilters({
   dayParts: DayPart[];
   selectedSiteId: string;
   selectedDate: string;
+  allDates: boolean;
   selectedDayPartId: string;
   flaggedOnly: boolean;
 }) {
@@ -32,7 +35,7 @@ export default function DashboardFilters({
   }) {
     const params = new URLSearchParams();
     params.set("site", next.site ?? selectedSiteId);
-    params.set("date", next.date ?? selectedDate);
+    params.set("date", next.date ?? (allDates ? "all" : selectedDate));
     params.set("dayPart", next.dayPart ?? selectedDayPartId);
     if (next.flagged ?? flaggedOnly) params.set("flagged", "1");
     router.push(`/dashboard?${params.toString()}`);
@@ -72,10 +75,20 @@ export default function DashboardFilters({
         <input
           id="date"
           type="date"
-          value={selectedDate}
+          value={allDates ? "" : selectedDate}
+          disabled={allDates}
           onChange={(e) => updateParams({ date: e.target.value })}
-          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
+          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body disabled:bg-app disabled:text-muted"
         />
+        <label className="flex items-center gap-1.5 text-xs font-semibold text-secondary">
+          <input
+            type="checkbox"
+            checked={allDates}
+            onChange={(e) => updateParams({ date: e.target.checked ? "all" : todayStr() })}
+            className="h-3.5 w-3.5 accent-brand"
+          />
+          All dates
+        </label>
       </div>
       {dayParts.length > 0 && (
         // Day parts are per-organisation - this only makes sense (and
