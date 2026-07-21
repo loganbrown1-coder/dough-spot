@@ -59,21 +59,20 @@ export async function updateMenuItemName(id: string, name: string): Promise<void
   if (error) throw error;
 }
 
+/**
+ * Deliberately doesn't select the inserted row back - see the comment on
+ * createSite in lib/data/sites.ts for why.
+ */
 export async function createMenuItem(params: {
   brandId: string;
   name: string;
   referenceImageUrl?: string | null;
-}): Promise<MenuItem> {
+}): Promise<void> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("menu_items")
-    .insert({
-      brand_id: params.brandId,
-      name: params.name,
-      reference_image_url: params.referenceImageUrl ?? null,
-    })
-    .select("*")
-    .single();
+  const { error } = await supabase.from("menu_items").insert({
+    brand_id: params.brandId,
+    name: params.name,
+    reference_image_url: params.referenceImageUrl ?? null,
+  });
   if (error) throw error;
-  return rowToMenuItem(data);
 }

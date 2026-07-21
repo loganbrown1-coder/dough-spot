@@ -43,18 +43,19 @@ export async function getBrand(id: string): Promise<Brand | null> {
   return data ? rowToBrand(data) : null;
 }
 
+/**
+ * Deliberately doesn't select the inserted row back - see the comment on
+ * createSite in lib/data/sites.ts for why.
+ */
 export async function createBrand(
   organisationId: string,
   name: string
-): Promise<Brand> {
+): Promise<void> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("brands")
-    .insert({ organisation_id: organisationId, name })
-    .select("*")
-    .single();
+    .insert({ organisation_id: organisationId, name });
   if (error) throw error;
-  return rowToBrand(data);
 }
 
 export async function updateBrandName(id: string, name: string): Promise<void> {

@@ -54,25 +54,24 @@ export async function getDayPart(id: string): Promise<DayPart | null> {
   return data ? rowToDayPart(data) : null;
 }
 
+/**
+ * Deliberately doesn't select the inserted row back - see the comment on
+ * createSite in lib/data/sites.ts for why.
+ */
 export async function createDayPart(params: {
   organisationId: string;
   label: string;
   startTime: string;
   endTime: string;
-}): Promise<DayPart> {
+}): Promise<void> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("day_parts")
-    .insert({
-      organisation_id: params.organisationId,
-      label: params.label,
-      start_time: params.startTime,
-      end_time: params.endTime,
-    })
-    .select("*")
-    .single();
+  const { error } = await supabase.from("day_parts").insert({
+    organisation_id: params.organisationId,
+    label: params.label,
+    start_time: params.startTime,
+    end_time: params.endTime,
+  });
   if (error) throw error;
-  return rowToDayPart(data);
 }
 
 export async function updateDayPart(

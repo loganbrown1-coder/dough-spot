@@ -30,14 +30,25 @@ export async function getOrganisation(id: string): Promise<Organisation | null> 
   return data ? rowToOrganisation(data) : null;
 }
 
+/**
+ * Deliberately split into an insert, then a separate select-by-name - see
+ * the comment on createSite in lib/data/sites.ts for why a combined
+ * insert+select can fail. Unlike sites/brands/menu items/day parts, the
+ * caller here does need the new row back (its id, to seed default day
+ * parts against it), and organisations.name is unique, so a follow-up
+ * lookup by name is safe and unambiguous.
+ */
 export async function createOrganisation(name: string): Promise<Organisation> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { error: insertError } = await supabase.from("organisations").insert({ name });
+  if (insertError) throw insertError;
+
+  const { data, error: selectError } = await supabase
     .from("organisations")
-    .insert({ name })
     .select("*")
+    .eq("name", name)
     .single();
-  if (error) throw error;
+  if (selectError) throw selectError;
   return rowToOrganisation(data);
 }
 

@@ -42,15 +42,20 @@ export async function getSite(id: string): Promise<Site | null> {
   return data ? rowToSite(data) : null;
 }
 
-export async function createSite(brandId: string, name: string): Promise<Site> {
+/**
+ * Deliberately doesn't select the inserted row back - combining an insert
+ * with a same-statement read on a table whose own row level security
+ * policy is what gates the insert can make Postgres reject the write
+ * entirely (a real, narrow Postgres/RLS interaction, confirmed by testing
+ * the same insert as two separate statements instead, which works fine -
+ * see the retention/day-parts commit history for the write-up). None of
+ * the callers need the created row back, so the simplest fix is to not
+ * ask for it.
+ */
+export async function createSite(brandId: string, name: string): Promise<void> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("sites")
-    .insert({ brand_id: brandId, name })
-    .select("*")
-    .single();
+  const { error } = await supabase.from("sites").insert({ brand_id: brandId, name });
   if (error) throw error;
-  return rowToSite(data);
 }
 
 export async function updateSiteName(id: string, name: string): Promise<void> {

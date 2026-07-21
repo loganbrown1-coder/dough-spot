@@ -148,7 +148,7 @@ create index if not exists idx_profiles_site on profiles(site_id);
 
 create or replace function public.current_profile()
 returns table (role text, organisation_id uuid, brand_id uuid, site_id uuid)
-language sql security definer stable set search_path = public as $$
+language sql security definer set search_path = public as $$
   select role, organisation_id, brand_id, site_id
   from profiles
   where id = auth.uid()
@@ -162,7 +162,7 @@ grant execute on function public.current_profile() to authenticated;
 -- both unrestricted (OpSpot's own accounts, not scoped to one customer).
 create or replace function public.accessible_site_ids()
 returns setof uuid
-language sql security definer stable set search_path = public as $$
+language sql security definer set search_path = public as $$
   select s.id
   from sites s
   join brands b on b.id = s.brand_id
@@ -179,7 +179,7 @@ grant execute on function public.accessible_site_ids() to authenticated;
 -- own brand_id, site_manager via the brand their one site belongs to.
 create or replace function public.accessible_brand_ids()
 returns setof uuid
-language sql security definer stable set search_path = public as $$
+language sql security definer set search_path = public as $$
   select b.id
   from brands b
   where (select role from current_profile()) in ('super_admin', 'agent')
@@ -197,7 +197,7 @@ grant execute on function public.accessible_brand_ids() to authenticated;
 -- brand or site.
 create or replace function public.accessible_organisation_ids()
 returns setof uuid
-language sql security definer stable set search_path = public as $$
+language sql security definer set search_path = public as $$
   select o.id
   from organisations o
   where (select role from current_profile()) in ('super_admin', 'agent')
