@@ -150,6 +150,7 @@ export default async function DashboardPage({
               menuItems={menuItems}
               linkToFilter={false}
               linkDate={linkDate}
+              showDateLabels={allDates}
               viewerRole={user.role}
             />
           ) : (
@@ -166,6 +167,7 @@ export default async function DashboardPage({
                       menuItems={menuItems}
                       linkToFilter
                       linkDate={linkDate}
+                      showDateLabels={allDates}
                       viewerRole={user.role}
                     />
                   ))}

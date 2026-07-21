@@ -15,6 +15,7 @@ export default function SiteSection({
   menuItems,
   linkToFilter,
   linkDate,
+  showDateLabels,
   viewerRole,
 }: {
   site: Site;
@@ -23,6 +24,7 @@ export default function SiteSection({
   menuItems: MenuItem[];
   linkToFilter: boolean;
   linkDate: string;
+  showDateLabels: boolean;
   viewerRole: Role;
 }) {
   const brandMenuItems = menuItems.filter((m) => m.brandId === site.brandId);
@@ -52,7 +54,7 @@ export default function SiteSection({
         <div className="flex flex-col gap-5">
           {dateRows.map((row) => (
             <div key={row.date} className="flex flex-col gap-2">
-              {dateRows.length > 1 && (
+              {showDateLabels && (
                 <h3 className="text-[13px] font-bold text-secondary">{formatDateLabel(row.date)}</h3>
               )}
               <div className={`grid gap-4 ${dayParts.length > 1 ? "md:grid-cols-3" : "max-w-sm"}`}>
