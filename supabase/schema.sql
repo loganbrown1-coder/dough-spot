@@ -377,6 +377,12 @@ create policy "capture_events_insert" on capture_events for insert with check (
   and actor_id = auth.uid()
   and actor_email = (auth.jwt() ->> 'email')
 );
+-- capture_events stays append-only for everyone else; this only enables
+-- the one legitimate case for deleting history at all -
+-- forceDeleteSiteAction permanently wiping a site's data.
+create policy "capture_events_delete" on capture_events for delete using (
+  (select role from current_profile()) = 'super_admin'
+);
 
 -- profiles: a user can always read their own row; super_admin can read
 -- everyone (there's no customer-side admin tier to also grant this to).
