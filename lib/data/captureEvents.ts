@@ -76,3 +76,21 @@ export async function listCaptureEvents(params: {
   if (error) throw error;
   return (data ?? []).map(rowToEvent);
 }
+
+/**
+ * Used by deleteSiteAction - a site can have audit history (capture_events)
+ * even with zero current captures, e.g. every past photo was later
+ * replaced or cleared. capture_events.site_id is "on delete restrict" the
+ * same as captures, so this has to be checked independently of
+ * countCapturesForSite rather than assumed to be zero whenever captures
+ * are.
+ */
+export async function countCaptureEventsForSite(siteId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("capture_events")
+    .select("*", { count: "exact", head: true })
+    .eq("site_id", siteId);
+  if (error) throw error;
+  return count ?? 0;
+}

@@ -4,26 +4,37 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteSiteAction, forceDeleteSiteAction } from "@/lib/actions/admin";
 
+function describeCounts(captureCount: number, eventCount: number): string {
+  const parts: string[] = [];
+  if (captureCount > 0) parts.push(`${captureCount} photo${captureCount === 1 ? "" : "s"}`);
+  if (eventCount > 0) {
+    parts.push(`${eventCount} activity log entr${eventCount === 1 ? "y" : "ies"}`);
+  }
+  return parts.join(" and ");
+}
+
 export default function DeleteSiteButton({ id, name }: { id: string; name: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  // Capture count once the safe delete is specifically blocked by photos
+  // Set once the safe delete is specifically blocked by photos/history
   // (not by an assigned user) - offers the force-delete escalation below.
-  const [offerForceCount, setOfferForceCount] = useState<number | null>(null);
+  const [offerForce, setOfferForce] = useState<{ captures: number; events: number } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [typedName, setTypedName] = useState("");
 
   function remove() {
     if (!confirm(`Remove ${name}? This can't be undone.`)) return;
     setError(null);
-    setOfferForceCount(null);
+    setOfferForce(null);
     setConfirming(false);
     startTransition(async () => {
       const result = await deleteSiteAction(id);
       if (result.error) {
         setError(result.error);
-        if (result.blockedByCaptures) setOfferForceCount(result.captureCount ?? 0);
+        if (result.blockedByCaptures) {
+          setOfferForce({ captures: result.captureCount ?? 0, events: result.eventCount ?? 0 });
+        }
       } else {
         router.refresh();
       }
@@ -38,7 +49,7 @@ export default function DeleteSiteButton({ id, name }: { id: string; name: strin
       if (result.error) {
         setError(result.error);
       } else {
-        setOfferForceCount(null);
+        setOfferForce(null);
         setConfirming(false);
         router.refresh();
       }
@@ -57,22 +68,21 @@ export default function DeleteSiteButton({ id, name }: { id: string; name: strin
       </button>
       {error && <span className="text-[10px] text-red-600">{error}</span>}
 
-      {offerForceCount !== null && !confirming && (
+      {offerForce && !confirming && (
         <button
           type="button"
           onClick={() => setConfirming(true)}
           className="text-left text-[10px] font-bold text-red-700 underline hover:text-red-900"
         >
-          Delete permanently (including {offerForceCount} photo{offerForceCount === 1 ? "" : "s"})
+          Delete permanently (including {describeCounts(offerForce.captures, offerForce.events)})
         </button>
       )}
 
-      {confirming && (
+      {confirming && offerForce && (
         <div className="flex w-56 flex-col gap-1.5 rounded border border-red-300 bg-red-50 p-2.5">
           <p className="text-[10px] leading-snug text-red-800">
-            Deletes <strong>{name}</strong>, {offerForceCount} photo
-            {offerForceCount === 1 ? "" : "s"}, and its activity history permanently. Type the
-            site name to confirm:
+            Deletes <strong>{name}</strong> and {describeCounts(offerForce.captures, offerForce.events)}{" "}
+            permanently. Type the site name to confirm:
           </p>
           <input
             value={typedName}

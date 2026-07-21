@@ -20,6 +20,7 @@ import {
   listDayPartsByOrganisation,
 } from "@/lib/data/dayParts";
 import { countCapturesForDayPart, countCapturesForSite } from "@/lib/data/captures";
+import { countCaptureEventsForSite } from "@/lib/data/captureEvents";
 import { listProfiles } from "@/lib/data/profiles";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import { imageExtension } from "@/lib/imageUpload";
@@ -183,22 +184,38 @@ export async function renameSiteAction(
 /**
  * Refuses to delete a site that still has photos, audit history, or an
  * assigned user - all three are "on delete restrict" at the database
- * level too (see migration 008), this just gives a clearer error than the
- * raw foreign key violation. When blocked specifically by photos (not
- * users), returns blockedByCaptures/captureCount so the UI can offer
- * forceDeleteSiteAction as an explicit, separate escalation.
+ * level too (see migrations 008 and 011), this just gives a clearer error
+ * than the raw foreign key violation. Captures and capture_events are
+ * checked independently - a site can have audit history even with zero
+ * current captures (every past photo was later replaced or cleared), so
+ * captureCount alone isn't a reliable signal that a plain delete will
+ * succeed. When blocked by either, returns blockedByCaptures plus both
+ * counts so the UI can offer forceDeleteSiteAction as an explicit,
+ * separate escalation.
  */
-export async function deleteSiteAction(
-  id: string
-): Promise<{ error?: string; blockedByCaptures?: boolean; captureCount?: number }> {
+export async function deleteSiteAction(id: string): Promise<{
+  error?: string;
+  blockedByCaptures?: boolean;
+  captureCount?: number;
+  eventCount?: number;
+}> {
   await requireSuperAdmin();
 
-  const captureCount = await countCapturesForSite(id);
-  if (captureCount > 0) {
+  const [captureCount, eventCount] = await Promise.all([
+    countCapturesForSite(id),
+    countCaptureEventsForSite(id),
+  ]);
+  if (captureCount > 0 || eventCount > 0) {
+    const parts: string[] = [];
+    if (captureCount > 0) parts.push(`${captureCount} photo${captureCount === 1 ? "" : "s"}`);
+    if (eventCount > 0) {
+      parts.push(`${eventCount} activity log entr${eventCount === 1 ? "y" : "ies"}`);
+    }
     return {
-      error: `Can't remove — ${captureCount} photo${captureCount === 1 ? "" : "s"} exist for this site.`,
+      error: `Can't remove — ${parts.join(" and ")} exist for this site.`,
       blockedByCaptures: true,
       captureCount,
+      eventCount,
     };
   }
 
