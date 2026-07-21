@@ -5,7 +5,13 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
 import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
-import { createSite, getSite, updateSiteName, deleteSite } from "@/lib/data/sites";
+import {
+  createSite,
+  getSite,
+  updateSiteName,
+  deleteSite,
+  forceDeleteSiteAndAllData,
+} from "@/lib/data/sites";
 import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
 import {
   createDayPart,
@@ -178,15 +184,21 @@ export async function renameSiteAction(
  * Refuses to delete a site that still has photos, audit history, or an
  * assigned user - all three are "on delete restrict" at the database
  * level too (see migration 008), this just gives a clearer error than the
- * raw foreign key violation.
+ * raw foreign key violation. When blocked specifically by photos (not
+ * users), returns blockedByCaptures/captureCount so the UI can offer
+ * forceDeleteSiteAction as an explicit, separate escalation.
  */
-export async function deleteSiteAction(id: string): Promise<{ error?: string }> {
+export async function deleteSiteAction(
+  id: string
+): Promise<{ error?: string; blockedByCaptures?: boolean; captureCount?: number }> {
   await requireSuperAdmin();
 
   const captureCount = await countCapturesForSite(id);
   if (captureCount > 0) {
     return {
       error: `Can't remove — ${captureCount} photo${captureCount === 1 ? "" : "s"} exist for this site.`,
+      blockedByCaptures: true,
+      captureCount,
     };
   }
 
@@ -203,6 +215,33 @@ export async function deleteSiteAction(id: string): Promise<{ error?: string }> 
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to remove site." };
+  }
+}
+
+/**
+ * The escalation from deleteSiteAction once an admin has explicitly
+ * confirmed they want it (see DeleteSiteButton's type-to-confirm flow):
+ * permanently deletes every photo, storage object, and audit log entry
+ * for this site, then the site itself. Irreversible. Still refuses if a
+ * user is assigned - that's a separate, deliberate action via the Users
+ * tab, not something a photo-deletion shortcut should do as a side effect.
+ */
+export async function forceDeleteSiteAction(id: string): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const assignedUsers = (await listProfiles()).filter((p) => p.siteId === id);
+  if (assignedUsers.length > 0) {
+    return {
+      error: `Can't delete — ${assignedUsers.length} user${assignedUsers.length === 1 ? " is" : "s are"} still assigned to this site. Reassign or remove them first.`,
+    };
+  }
+
+  try {
+    await forceDeleteSiteAndAllData(id);
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to delete site." };
   }
 }
 

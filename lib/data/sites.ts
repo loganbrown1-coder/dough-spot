@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import { objectPathFromStoredUrl } from "@/lib/storagePaths";
 import type { Site } from "@/types";
+
+const CAPTURES_BUCKET = "captures";
 
 function rowToSite(row: { id: string; brand_id: string; name: string }): Site {
   return { id: row.id, brandId: row.brand_id, name: row.name };
@@ -75,4 +79,46 @@ export async function deleteSite(id: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("sites").delete().eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * The escalation from deleteSite() once an admin has explicitly confirmed
+ * they want it: permanently deletes every photo (storage object and row),
+ * every audit log entry, and the site itself. Irreversible - there is no
+ * recovery for the photos or history this removes. Does NOT touch
+ * assigned users - forceDeleteSiteAction still refuses if any exist,
+ * since removing someone's account access is a separate, deliberate
+ * action from deleting photos (see Users tab).
+ */
+export async function forceDeleteSiteAndAllData(id: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data: captures, error: capturesError } = await supabase
+    .from("captures")
+    .select("image_url")
+    .eq("site_id", id);
+  if (capturesError) throw capturesError;
+
+  const paths = (captures ?? [])
+    .map((c) => objectPathFromStoredUrl(CAPTURES_BUCKET, c.image_url))
+    .filter((p): p is string => Boolean(p));
+  if (paths.length > 0) {
+    const admin = getSupabaseAdmin();
+    await admin.storage.from(CAPTURES_BUCKET).remove(paths);
+  }
+
+  const { error: eventsError } = await supabase
+    .from("capture_events")
+    .delete()
+    .eq("site_id", id);
+  if (eventsError) throw eventsError;
+
+  const { error: capturesDeleteError } = await supabase
+    .from("captures")
+    .delete()
+    .eq("site_id", id);
+  if (capturesDeleteError) throw capturesDeleteError;
+
+  const { error: siteError } = await supabase.from("sites").delete().eq("id", id);
+  if (siteError) throw siteError;
 }
