@@ -55,7 +55,9 @@ create table if not exists menu_items (
 
 create table if not exists captures (
   id uuid primary key default gen_random_uuid(),
-  site_id uuid not null references sites(id) on delete cascade,
+  -- "on delete restrict" means a site with any photos against it can't be
+  -- deleted - see deleteSiteAction.
+  site_id uuid not null references sites(id) on delete restrict,
   date date not null,
   -- "on delete restrict" (the default) means a day part with any photos
   -- against it can't be deleted - see deleteDayPartAction.
@@ -96,7 +98,9 @@ create table if not exists profiles (
   role text not null, -- 'super_admin' | 'agent' | 'ops' | 'site_manager'
   organisation_id uuid references organisations(id) on delete cascade,
   brand_id uuid references brands(id) on delete cascade,
-  site_id uuid references sites(id) on delete cascade,
+  -- "on delete restrict" means a site with a user still assigned to it
+  -- can't be deleted - reassign or remove that user first.
+  site_id uuid references sites(id) on delete restrict,
   -- Set by an admin deactivating a user (e.g. someone who's left) without
   -- deleting their history. Checked at session time in lib/auth.ts, on
   -- top of also being banned in Supabase Auth itself.
@@ -109,7 +113,9 @@ create table if not exists profiles (
 -- admin can open a site + date and see who did what, when.
 create table if not exists capture_events (
   id uuid primary key default gen_random_uuid(),
-  site_id uuid not null references sites(id) on delete cascade,
+  -- "on delete restrict" means a site with audit history against it can't
+  -- be deleted, protecting the audit trail the same way captures are.
+  site_id uuid not null references sites(id) on delete restrict,
   date date not null,
   day_part_id uuid not null references day_parts(id),
   sequence int not null,
@@ -259,6 +265,9 @@ create policy "sites_insert" on sites for insert with check (
   (select role from current_profile()) = 'super_admin'
 );
 create policy "sites_update" on sites for update using (
+  (select role from current_profile()) = 'super_admin'
+);
+create policy "sites_delete" on sites for delete using (
   (select role from current_profile()) = 'super_admin'
 );
 

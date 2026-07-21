@@ -58,3 +58,16 @@ export async function updateSiteName(id: string, name: string): Promise<void> {
   const { error } = await supabase.from("sites").update({ name }).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Fails with a foreign key violation if the site still has captures,
+ * audit history, or an assigned user - all three are "on delete
+ * restrict" precisely so this can't happen silently. The caller
+ * (deleteSiteAction) checks for these ahead of time to give a clearer
+ * error than the raw constraint violation.
+ */
+export async function deleteSite(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("sites").delete().eq("id", id);
+  if (error) throw error;
+}

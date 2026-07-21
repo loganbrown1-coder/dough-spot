@@ -17,6 +17,7 @@ import InviteUserForm from "@/app/components/InviteUserForm";
 import InviteOpspotUserForm from "@/app/components/InviteOpspotUserForm";
 import ActivityLog from "@/app/components/ActivityLog";
 import RenameField from "@/app/components/RenameField";
+import DeleteSiteButton from "@/app/components/DeleteSiteButton";
 import RetentionField from "@/app/components/RetentionField";
 import UsersTable from "@/app/components/UsersTable";
 import AdminTabs, { type AdminTab } from "@/app/components/AdminTabs";
@@ -193,11 +194,12 @@ export default async function AdminPage({
             </SectionCard>
             <DataTable
               title="Sites"
-              columns={["Name", "Brand"]}
+              columns={["Name", "Brand", "Actions"]}
               emptyMessage="No sites yet."
               rows={sites.map((s) => [
                 <RenameField key={s.id} id={s.id} name={s.name} action={renameSiteAction} />,
                 brandNameById.get(s.brandId) ?? "-",
+                <DeleteSiteButton key={s.id} id={s.id} name={s.name} />,
               ])}
             />
             <SectionCard title="Add a day part">

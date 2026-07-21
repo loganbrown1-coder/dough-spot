@@ -5,7 +5,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
 import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
-import { createSite, getSite, updateSiteName } from "@/lib/data/sites";
+import { createSite, getSite, updateSiteName, deleteSite } from "@/lib/data/sites";
 import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
 import {
   createDayPart,
@@ -13,7 +13,8 @@ import {
   deleteDayPart,
   listDayPartsByOrganisation,
 } from "@/lib/data/dayParts";
-import { countCapturesForDayPart } from "@/lib/data/captures";
+import { countCapturesForDayPart, countCapturesForSite } from "@/lib/data/captures";
+import { listProfiles } from "@/lib/data/profiles";
 import { ROLE_LABELS } from "@/lib/roleLabels";
 import { imageExtension } from "@/lib/imageUpload";
 import type { Role } from "@/types";
@@ -170,6 +171,38 @@ export async function renameSiteAction(
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to rename site." };
+  }
+}
+
+/**
+ * Refuses to delete a site that still has photos, audit history, or an
+ * assigned user - all three are "on delete restrict" at the database
+ * level too (see migration 008), this just gives a clearer error than the
+ * raw foreign key violation.
+ */
+export async function deleteSiteAction(id: string): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const captureCount = await countCapturesForSite(id);
+  if (captureCount > 0) {
+    return {
+      error: `Can't remove — ${captureCount} photo${captureCount === 1 ? "" : "s"} exist for this site.`,
+    };
+  }
+
+  const assignedUsers = (await listProfiles()).filter((p) => p.siteId === id);
+  if (assignedUsers.length > 0) {
+    return {
+      error: `Can't remove — ${assignedUsers.length} user${assignedUsers.length === 1 ? " is" : "s are"} still assigned to this site. Reassign or remove them first.`,
+    };
+  }
+
+  try {
+    await deleteSite(id);
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove site." };
   }
 }
 

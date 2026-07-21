@@ -276,3 +276,14 @@ export async function countCapturesForDayPart(dayPartId: string): Promise<number
   if (error) throw error;
   return count ?? 0;
 }
+
+/** Used by deleteSiteAction to give a clear error instead of a raw foreign key violation. */
+export async function countCapturesForSite(siteId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("captures")
+    .select("*", { count: "exact", head: true })
+    .eq("site_id", siteId);
+  if (error) throw error;
+  return count ?? 0;
+}
