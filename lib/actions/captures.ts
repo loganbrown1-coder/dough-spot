@@ -4,6 +4,7 @@ import { getCurrentUser, canAccessSite, canManageCaptures } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import {
   listCaptures,
+  getCapture,
   replaceCaptures,
   updateCaptureRating,
   updateCaptureMenuItem,
@@ -317,15 +318,13 @@ export async function deleteCaptureAction(
     return { error: "Only OpSpot agents and admins can delete a photo." };
   }
 
-  // Fetched here (not passed in from the client) because the client only
-  // ever has a short-lived signed URL, not the stored path-carrier value
-  // needed to find the storage object.
-  const admin = getSupabaseAdmin();
-  const { data: row } = await admin
-    .from("captures")
-    .select("image_url")
-    .eq("id", captureId)
-    .maybeSingle();
+  // Fetched through the RLS-scoped client (not the admin client) so that a
+  // captureId belonging to a site outside the caller's access returns null
+  // here and short-circuits before any storage object gets touched. The
+  // storage deletion below uses the admin client because Storage has no
+  // RLS policies of its own - this lookup is what stands in for that.
+  const row = await getCapture(captureId);
+  if (!row) return { error: "Photo not found." };
 
   try {
     await deleteCapture(captureId);
@@ -333,7 +332,8 @@ export async function deleteCaptureAction(
     return { error: err instanceof Error ? err.message : "Failed to delete photo." };
   }
 
-  const path = row?.image_url ? objectPathFromStoredUrl(BUCKET, row.image_url) : null;
+  const admin = getSupabaseAdmin();
+  const path = objectPathFromStoredUrl(BUCKET, row.imageUrl);
   if (path) {
     await admin.storage.from(BUCKET).remove([path]);
   }

@@ -229,6 +229,23 @@ export async function updateCaptureImage(
  * Deletes a single capture row. Scoped by the `captures_delete` row level
  * security policy, the same one `replaceCaptures` relies on.
  */
+/**
+ * RLS-scoped fetch by id - returns null if the capture doesn't exist OR
+ * the caller can't access its site, which callers rely on to gate
+ * privileged follow-up work (e.g. deleting the underlying storage object)
+ * on real access rather than trusting a client-supplied siteId.
+ */
+export async function getCapture(captureId: string): Promise<Capture | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("captures")
+    .select("*")
+    .eq("id", captureId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToCapture(data) : null;
+}
+
 export async function deleteCapture(captureId: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("captures").delete().eq("id", captureId);
