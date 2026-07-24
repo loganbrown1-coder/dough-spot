@@ -57,9 +57,13 @@ export default async function DashboardPage({
   const selectedSiteId =
     params.site && sites.some((s) => s.id === params.site) ? params.site : "";
   const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : undefined;
-  // date=all is an explicit choice to browse every date; no date param at
-  // all still defaults to today, same as before.
-  const allDates = params.date === "all";
+  // date=all is an explicit choice to browse every date; landing here with
+  // no date param at all (fresh login, or clicking "Dashboard" in the nav)
+  // now defaults to that same all-dates view too. Every filter interaction
+  // in DashboardFilters always writes an explicit date param (either "all"
+  // or a real date), so this default is only ever reached on first landing
+  // - unchecking "All dates" there still snaps back to today as before.
+  const allDates = params.date === undefined || params.date === "all";
   const selectedDate = allDates ? "" : params.date || todayStr();
 
   // The day part filter only applies (and only appears, see
@@ -108,7 +112,7 @@ export default async function DashboardPage({
   return (
     <div className="mx-auto w-full max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-navy">Dashboard</h1>
+        <h1 className="text-2xl font-extrabold text-navy">Home Page</h1>
         {canManageCaptures(user.role) && (
           <Link
             href={uploadHref}
