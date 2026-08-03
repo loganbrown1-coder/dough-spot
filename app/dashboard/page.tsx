@@ -3,7 +3,11 @@ import { requireUser, sitesInScope, canManageCaptures } from "@/lib/auth";
 import { listBrands } from "@/lib/data/brands";
 import { listMenuItems } from "@/lib/data/menuItems";
 import { listDayParts } from "@/lib/data/dayParts";
-import { listCapturesByDate, listCapturesAllDates } from "@/lib/data/captures";
+import {
+  listCapturesByDate,
+  listCapturesAllDates,
+  getMostRecentCaptureDate,
+} from "@/lib/data/captures";
 import { todayStr } from "@/lib/date";
 import { groupSitesByBrand } from "@/lib/siteGroups";
 import DashboardFilters from "@/app/components/DashboardFilters";
@@ -57,14 +61,18 @@ export default async function DashboardPage({
   const selectedSiteId =
     params.site && sites.some((s) => s.id === params.site) ? params.site : "";
   const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : undefined;
-  // date=all is an explicit choice to browse every date; landing here with
+  // date=all is an explicit choice to browse every date. Landing here with
   // no date param at all (fresh login, or clicking "Dashboard" in the nav)
-  // now defaults to that same all-dates view too. Every filter interaction
-  // in DashboardFilters always writes an explicit date param (either "all"
-  // or a real date), so this default is only ever reached on first landing
-  // - unchecking "All dates" there still snaps back to today as before.
-  const allDates = params.date === undefined || params.date === "all";
-  const selectedDate = allDates ? "" : params.date || todayStr();
+  // instead defaults to whichever day most recently had any photos
+  // uploaded (typically yesterday) rather than an empty "today" - a pure
+  // read, scoped by RLS to sites this caller can see; falls back to today
+  // if nothing's ever been uploaded yet. Every filter interaction in
+  // DashboardFilters always writes an explicit date param, so this lookup
+  // only ever runs on first landing.
+  const allDates = params.date === "all";
+  const mostRecentDate =
+    params.date === undefined && !allDates ? await getMostRecentCaptureDate() : null;
+  const selectedDate = allDates ? "" : params.date || mostRecentDate || todayStr();
 
   // The day part filter only applies (and only appears, see
   // DashboardFilters) once a single site is selected - otherwise there's

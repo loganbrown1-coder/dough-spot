@@ -32,3 +32,14 @@ export async function compressImage(
   const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
   return new File([blob], newName, { type: "image/jpeg" });
 }
+
+/**
+ * A small sibling image for grid tiles, which never display larger than
+ * ~150px - the full compressed photo is complete overkill for that, and
+ * downloading it anyway is most of the dashboard's storage egress. Same
+ * function, just tuned smaller; the full-size compressImage() call next
+ * to each of these is untouched; this is purely additive.
+ */
+export async function compressThumbnail(file: File): Promise<File> {
+  return compressImage(file, { maxDimension: 320, quality: 0.7 });
+}

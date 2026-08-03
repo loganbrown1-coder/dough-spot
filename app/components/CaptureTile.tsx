@@ -10,7 +10,7 @@ import {
   flagCaptureAction,
   resolveFlagAction,
 } from "@/lib/actions/captures";
-import { compressImage } from "@/lib/compressImage";
+import { compressImage, compressThumbnail } from "@/lib/compressImage";
 import type { Capture, MenuItem, Role } from "@/types";
 
 function StarRating({
@@ -295,13 +295,15 @@ export default function CaptureTile({
     setError(null);
     try {
       const compressed = await compressImage(file);
+      const thumbnail = await compressThumbnail(file);
       const result = await replaceCaptureImageAction(
         capture.id,
         siteId,
         date,
         dayPartId,
         sequence,
-        compressed
+        compressed,
+        thumbnail
       );
       if (result.error) setError(result.error);
       else notifyChanged();
@@ -335,9 +337,17 @@ export default function CaptureTile({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={capture.imageUrl}
+            src={capture.thumbnailUrl ?? capture.imageUrl}
             alt={alt}
             className="h-full w-full object-cover transition hover:opacity-90"
+            onError={(e) => {
+              // Covers a capture uploaded before thumbnails existed, or any
+              // other reason the small variant 404s - fall back to the
+              // full-size image rather than showing a broken tile.
+              if (e.currentTarget.src !== capture.imageUrl) {
+                e.currentTarget.src = capture.imageUrl;
+              }
+            }}
           />
         </button>
         {busy && (

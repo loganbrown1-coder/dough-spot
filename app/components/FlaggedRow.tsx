@@ -8,7 +8,7 @@ import {
   deleteCaptureAction,
   resolveFlagAction,
 } from "@/lib/actions/captures";
-import { compressImage } from "@/lib/compressImage";
+import { compressImage, compressThumbnail } from "@/lib/compressImage";
 import Lightbox from "@/app/components/Lightbox";
 import type { Capture, MenuItem } from "@/types";
 
@@ -121,13 +121,15 @@ export default function FlaggedRow({
     setError(null);
     try {
       const compressed = await compressImage(file);
+      const thumbnail = await compressThumbnail(file);
       const result = await replaceCaptureImageAction(
         capture.id,
         capture.siteId,
         capture.date,
         capture.dayPartId,
         capture.sequence,
-        compressed
+        compressed,
+        thumbnail
       );
       if (result.error) setError(result.error);
     } finally {
@@ -181,7 +183,16 @@ export default function FlaggedRow({
           aria-label={`View ${alt} larger`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={capture.imageUrl} alt={alt} className="h-full w-full object-cover" />
+          <img
+            src={capture.thumbnailUrl ?? capture.imageUrl}
+            alt={alt}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              if (e.currentTarget.src !== capture.imageUrl) {
+                e.currentTarget.src = capture.imageUrl;
+              }
+            }}
+          />
         </button>
         {busy && (
           <div className="absolute inset-0 flex items-center justify-center rounded-brand bg-white/70">

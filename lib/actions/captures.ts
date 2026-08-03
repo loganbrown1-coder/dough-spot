@@ -19,7 +19,7 @@ import { logCaptureEvent, listCaptureEvents } from "@/lib/data/captureEvents";
 import { getDayPart } from "@/lib/data/dayParts";
 import { getSite } from "@/lib/data/sites";
 import { getBrand } from "@/lib/data/brands";
-import { objectPathFromStoredUrl } from "@/lib/storagePaths";
+import { objectPathFromStoredUrl, thumbnailPathFor } from "@/lib/storagePaths";
 import { imageExtension } from "@/lib/imageUpload";
 import type { Capture, CaptureEvent } from "@/types";
 
@@ -69,6 +69,32 @@ async function logEvent(params: Parameters<typeof logCaptureEvent>[0]): Promise<
     await logCaptureEvent(params);
   } catch (err) {
     console.error("Failed to log capture event:", err);
+  }
+}
+
+/**
+ * Uploads a thumbnail alongside a full-size object, if one was sent -
+ * best-effort only. Thumbnails are a pure optimization (see
+ * thumbnailPathFor/withSignedUrls): every read path already falls back to
+ * the full image when no thumbnail exists, so a failure here must never
+ * block or fail the actual photo upload it's attached to.
+ */
+async function uploadThumbnail(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  objectPath: string,
+  thumbnail: File | null
+): Promise<void> {
+  if (!thumbnail || thumbnail.size === 0) return;
+  try {
+    const buffer = Buffer.from(await thumbnail.arrayBuffer());
+    await admin.storage
+      .from(BUCKET)
+      .upload(thumbnailPathFor(objectPath), buffer, {
+        contentType: thumbnail.type || "image/jpeg",
+        upsert: true,
+      });
+  } catch (err) {
+    console.error("Failed to upload thumbnail:", err);
   }
 }
 
@@ -140,6 +166,9 @@ export async function uploadCapturesAction(
       .from(BUCKET)
       .upload(objectPath, buffer, { contentType: file.type, upsert: true });
     if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+
+    const thumbnailEntry = formData.get(`thumbnail${sequence}`);
+    await uploadThumbnail(supabase, objectPath, thumbnailEntry instanceof File ? thumbnailEntry : null);
 
     const { data: publicUrl } = supabase.storage
       .from(BUCKET)
@@ -251,7 +280,8 @@ export async function replaceCaptureImageAction(
   date: string,
   dayPartId: string,
   sequence: number,
-  file: File
+  file: File,
+  thumbnail: File | null = null
 ): Promise<{ error?: string; imageUrl?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
@@ -268,9 +298,13 @@ export async function replaceCaptureImageAction(
   const folder = `${siteId}/${date}/${dayPartId}`;
 
   // The replacement may use a different extension than what's already
-  // there, so clear anything at this sequence before writing the new file.
+  // there, so clear anything at this sequence before writing the new file
+  // - including its old thumbnail sibling ("1-thumb.jpg"), which wouldn't
+  // otherwise match a plain "1." prefix check.
   const { data: existing } = await admin.storage.from(BUCKET).list(folder);
-  const stale = (existing ?? []).filter((f) => f.name.startsWith(`${sequence}.`));
+  const stale = (existing ?? []).filter(
+    (f) => f.name.startsWith(`${sequence}.`) || f.name.startsWith(`${sequence}-thumb.`)
+  );
   if (stale.length > 0) {
     await admin.storage.from(BUCKET).remove(stale.map((f) => `${folder}/${f.name}`));
   }
@@ -282,6 +316,8 @@ export async function replaceCaptureImageAction(
     .from(BUCKET)
     .upload(objectPath, buffer, { contentType: file.type, upsert: true });
   if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+
+  await uploadThumbnail(admin, objectPath, thumbnail);
 
   const { data: publicUrl } = admin.storage.from(BUCKET).getPublicUrl(objectPath);
   const imageUrl = withCacheBust(publicUrl.publicUrl);

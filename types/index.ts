@@ -42,6 +42,10 @@ export interface Capture {
   dayPartId: string;
   sequence: number; // 1-3
   imageUrl: string;
+  // A small pre-generated variant for grid thumbnails, signed the same way
+  // as imageUrl - null for a capture uploaded before thumbnails existed,
+  // or if signing it failed for any reason. Callers fall back to imageUrl.
+  thumbnailUrl: string | null;
   capturedAt: string; // ISO timestamp
   source: CaptureSource;
   menuItemId: string | null;

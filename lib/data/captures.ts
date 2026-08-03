@@ -1,15 +1,40 @@
 import { createClient } from "@/lib/db/supabase-server";
-import { objectPathFromStoredUrl, signStoredUrls } from "@/lib/storagePaths";
+import {
+  objectPathFromStoredUrl,
+  signStoredUrls,
+  signObjectPaths,
+  thumbnailPathFor,
+} from "@/lib/storagePaths";
 import type { Capture, CaptureSource } from "@/types";
 
 const BUCKET = "captures";
 
-/** Swaps each capture's stored (unresolvable, private-bucket) URL for a fresh signed one. */
+/**
+ * Swaps each capture's stored (unresolvable, private-bucket) URL for a
+ * fresh signed one, and resolves its small thumbnail sibling the same way
+ * - null when no thumbnail exists yet (a capture uploaded before
+ * thumbnails existed), which is exactly the "not signed" case
+ * signObjectPaths already leaves out of its returned map. Never touches
+ * the underlying files, only which URLs get handed back for this request.
+ */
 async function withSignedUrls(captures: Capture[]): Promise<Capture[]> {
-  const signed = await signStoredUrls(BUCKET, captures.map((c) => c.imageUrl));
-  return captures.map((c) => {
-    const path = objectPathFromStoredUrl(BUCKET, c.imageUrl);
-    return path && signed.has(path) ? { ...c, imageUrl: signed.get(path)! } : c;
+  const fullPaths = captures.map((c) => objectPathFromStoredUrl(BUCKET, c.imageUrl));
+  const thumbPaths = fullPaths.map((p) => (p ? thumbnailPathFor(p) : null));
+
+  const [signedFull, signedThumb] = await Promise.all([
+    signStoredUrls(BUCKET, captures.map((c) => c.imageUrl)),
+    signObjectPaths(
+      BUCKET,
+      thumbPaths.filter((p): p is string => Boolean(p))
+    ),
+  ]);
+
+  return captures.map((c, i) => {
+    const path = fullPaths[i];
+    const imageUrl = path && signedFull.has(path) ? signedFull.get(path)! : c.imageUrl;
+    const thumbPath = thumbPaths[i];
+    const thumbnailUrl = thumbPath && signedThumb.has(thumbPath) ? signedThumb.get(thumbPath)! : null;
+    return { ...c, imageUrl, thumbnailUrl };
   });
 }
 
@@ -37,6 +62,10 @@ function rowToCapture(row: {
     dayPartId: row.day_part_id,
     sequence: row.sequence,
     imageUrl: row.image_url,
+    // Resolved by withSignedUrls for display reads - left null here since
+    // getCapture() (delete-verification only, never rendered) skips that
+    // step entirely.
+    thumbnailUrl: null,
     capturedAt: row.captured_at,
     source: row.source as CaptureSource,
     menuItemId: row.menu_item_id,
@@ -83,6 +112,25 @@ export async function listCapturesByDate(date: string): Promise<Capture[]> {
     .order("sequence");
   if (error) throw error;
   return withSignedUrls((data ?? []).map(rowToCapture));
+}
+
+/**
+ * The most recent date with any photos across every site the caller can
+ * see - used to default the dashboard to whichever day most recently had
+ * uploads (typically yesterday) instead of an empty "today" view. Purely
+ * a read; returns null (caller falls back to today) for a brand-new
+ * organisation with no captures yet.
+ */
+export async function getMostRecentCaptureDate(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("captures")
+    .select("date")
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.date ?? null;
 }
 
 /**

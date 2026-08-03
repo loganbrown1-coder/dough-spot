@@ -7,7 +7,7 @@ import {
   getExistingCapturesAction,
   type UploadState,
 } from "@/lib/actions/captures";
-import { compressImage } from "@/lib/compressImage";
+import { compressImage, compressThumbnail } from "@/lib/compressImage";
 import { groupSitesByBrand } from "@/lib/siteGroups";
 import DayPartPhotoGrid from "@/app/components/DayPartPhotoGrid";
 import type { Brand, Capture, DayPart, MenuItem, Role, Site } from "@/types";
@@ -37,6 +37,7 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
   const [status, setStatus] = useState<string | null>(null);
   const [menuItemId, setMenuItemId] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
   const selectedMenuItem = menuItems.find((m) => m.id === menuItemId);
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -57,6 +58,19 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
       // If compression fails for any reason, fall back to the original
       // file the browser already put in input.files - upload can proceed.
       setStatus(`${file.name} (${formatSize(file.size)})`);
+    }
+
+    // Best-effort - the thumbnail is a pure optimization (see
+    // thumbnailPathFor), so a failure here should never block or affect
+    // the actual photo, which is already secured above regardless.
+    try {
+      const thumbnail = await compressThumbnail(file);
+      const thumbTransfer = new DataTransfer();
+      thumbTransfer.items.add(thumbnail);
+      if (thumbInputRef.current) thumbInputRef.current.files = thumbTransfer.files;
+    } catch {
+      // No thumbnail this time - the dashboard grid falls back to the
+      // full image for this photo, same as any pre-thumbnail capture.
     }
   }
 
@@ -83,6 +97,9 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
           className="sr-only"
           onChange={handleChange}
         />
+        {/* Populated alongside photo{n} in handleChange - not user-facing,
+            just rides along in the same form submission. */}
+        <input ref={thumbInputRef} name={`thumbnail${n}`} type="file" className="hidden" />
       </label>
       <select
         name={`menuItem${n}`}
