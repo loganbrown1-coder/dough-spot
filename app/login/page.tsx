@@ -3,9 +3,21 @@ import { getCurrentUser } from "@/lib/auth";
 import LoginForm from "@/app/components/LoginForm";
 import LogoMark from "@/app/components/LogoMark";
 
-export default async function LoginPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+  invite_link_invalid:
+    "That link has expired or was already used. Request a new one and try again.",
+};
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
+
+  const { error } = await searchParams;
+  const errorMessage = error ? ERROR_MESSAGES[error] : undefined;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-app px-4">
@@ -23,6 +35,12 @@ export default async function LoginPage() {
               Sign in to view or upload site photos
             </p>
           </div>
+
+          {errorMessage && (
+            <p className="mt-6 rounded-brand border border-error-border bg-error-bg px-3 py-2.5 text-[13px] text-error">
+              {errorMessage}
+            </p>
+          )}
 
           <div className="mt-6">
             <LoginForm />

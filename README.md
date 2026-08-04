@@ -19,7 +19,12 @@ below.
 4. Open **Authentication > URL Configuration**:
    - **Site URL**: `http://localhost:3000` for now (change this to your Vercel URL once deployed).
    - **Redirect URLs**: add `http://localhost:3000/auth/callback` (and later your Vercel URL's `/auth/callback` too). This is where invite emails send people to finish setting up their account.
-5. Open **Project Settings > API**. You'll need three values from this page:
+5. Open **Authentication > Email Templates > Reset Password** and replace the link's `href` (normally `{{ .ConfirmationURL }}`) with:
+   ```
+   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/set-password
+   ```
+   The default `{{ .ConfirmationURL }}` link goes through Supabase's own hosted verify endpoint using a one-time PKCE code tied to the browser that requested it - fine for invites (an admin sends those, so no browser ever "requests" one), but fragile for a password reset a user requests themselves, since mail clients often pre-visit links (e.g. Outlook/Hotmail Safe Links) and silently burn that one-time code before the real click. The `token_hash` link above goes straight to this app's `/auth/confirm` route (`app/auth/confirm/route.ts`), which isn't vulnerable to that.
+6. Open **Project Settings > API**. You'll need three values from this page:
    - **Project URL**
    - **anon** / **public** key
    - **service_role** key
