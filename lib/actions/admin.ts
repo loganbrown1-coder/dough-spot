@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
-import { createBrand, getBrand, updateBrandName } from "@/lib/data/brands";
+import { createBrand, getBrand, updateBrandName, updateBrandLogo } from "@/lib/data/brands";
 import {
   createSite,
   getSite,
@@ -162,6 +162,73 @@ export async function renameBrandAction(
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to rename brand." };
+  }
+}
+
+const BRAND_LOGO_BUCKET = "brand-logos";
+
+/**
+ * Uses a stable path (not a random UUID like menu item photos) so a
+ * re-upload naturally replaces the old logo instead of accumulating
+ * orphaned files. Clears the folder first (like uploadCapturesAction)
+ * since a replacement may use a different extension than what's there.
+ */
+export async function updateBrandLogoAction(
+  brandId: string,
+  file: File
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a logo image." };
+  const ext = imageExtension(file);
+  if (!ext) return { error: "The logo must be a JPEG, PNG, WebP, or GIF image." };
+  if (!(await getBrand(brandId))) return { error: "Unknown brand." };
+
+  const admin = getSupabaseAdmin();
+  const { data: existing } = await admin.storage.from(BRAND_LOGO_BUCKET).list(brandId);
+  if (existing && existing.length > 0) {
+    await admin.storage
+      .from(BRAND_LOGO_BUCKET)
+      .remove(existing.map((f) => `${brandId}/${f.name}`));
+  }
+
+  const objectPath = `${brandId}/logo.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error: uploadError } = await admin.storage
+    .from(BRAND_LOGO_BUCKET)
+    .upload(objectPath, buffer, { contentType: file.type });
+  if (uploadError) return { error: `Logo upload failed: ${uploadError.message}` };
+
+  const { data: publicUrl } = admin.storage.from(BRAND_LOGO_BUCKET).getPublicUrl(objectPath);
+
+  try {
+    await updateBrandLogo(brandId, publicUrl.publicUrl);
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to save logo." };
+  }
+}
+
+export async function removeBrandLogoAction(brandId: string): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!(await getBrand(brandId))) return { error: "Unknown brand." };
+
+  const admin = getSupabaseAdmin();
+  const { data: existing } = await admin.storage.from(BRAND_LOGO_BUCKET).list(brandId);
+  if (existing && existing.length > 0) {
+    await admin.storage
+      .from(BRAND_LOGO_BUCKET)
+      .remove(existing.map((f) => `${brandId}/${f.name}`));
+  }
+
+  try {
+    await updateBrandLogo(brandId, null);
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove logo." };
   }
 }
 

@@ -1,12 +1,31 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { objectPathFromStoredUrl, signStoredUrls } from "@/lib/storagePaths";
 import type { Brand } from "@/types";
+
+const BUCKET = "brand-logos";
 
 function rowToBrand(row: {
   id: string;
   organisation_id: string;
   name: string;
+  logo_url: string | null;
 }): Brand {
-  return { id: row.id, organisationId: row.organisation_id, name: row.name };
+  return {
+    id: row.id,
+    organisationId: row.organisation_id,
+    name: row.name,
+    logoUrl: row.logo_url,
+  };
+}
+
+/** Swaps each brand's stored (unresolvable, private-bucket) logo URL for a fresh signed one. */
+async function withSignedLogoUrls(brands: Brand[]): Promise<Brand[]> {
+  const signed = await signStoredUrls(BUCKET, brands.map((b) => b.logoUrl));
+  return brands.map((b) => {
+    if (!b.logoUrl) return b;
+    const path = objectPathFromStoredUrl(BUCKET, b.logoUrl);
+    return path && signed.has(path) ? { ...b, logoUrl: signed.get(path)! } : b;
+  });
 }
 
 export async function listBrands(): Promise<Brand[]> {
@@ -16,7 +35,7 @@ export async function listBrands(): Promise<Brand[]> {
     .select("*")
     .order("name");
   if (error) throw error;
-  return (data ?? []).map(rowToBrand);
+  return withSignedLogoUrls((data ?? []).map(rowToBrand));
 }
 
 export async function listBrandsByOrganisation(
@@ -29,7 +48,7 @@ export async function listBrandsByOrganisation(
     .eq("organisation_id", organisationId)
     .order("name");
   if (error) throw error;
-  return (data ?? []).map(rowToBrand);
+  return withSignedLogoUrls((data ?? []).map(rowToBrand));
 }
 
 export async function getBrand(id: string): Promise<Brand | null> {
@@ -40,7 +59,9 @@ export async function getBrand(id: string): Promise<Brand | null> {
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data ? rowToBrand(data) : null;
+  if (!data) return null;
+  const [brand] = await withSignedLogoUrls([rowToBrand(data)]);
+  return brand;
 }
 
 /**
@@ -61,5 +82,12 @@ export async function createBrand(
 export async function updateBrandName(id: string, name: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("brands").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Sets or (passing null) clears a brand's logo. */
+export async function updateBrandLogo(id: string, logoUrl: string | null): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("brands").update({ logo_url: logoUrl }).eq("id", id);
   if (error) throw error;
 }

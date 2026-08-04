@@ -24,7 +24,10 @@ create table if not exists organisations (
 create table if not exists brands (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references organisations(id) on delete cascade,
-  name text not null
+  name text not null,
+  -- Shown next to the brand's name on the customer's Home Page - same
+  -- private-bucket, signed-URL treatment as menu item reference photos.
+  logo_url text
 );
 
 create table if not exists sites (
@@ -416,4 +419,10 @@ on conflict (id) do update set public = false;
 -- treatment, from lib/data/menuItems.ts.
 insert into storage.buckets (id, name, public)
 values ('menu-items', 'menu-items', false)
+on conflict (id) do update set public = false;
+
+-- Private storage bucket for brand logos - same signed-URL treatment,
+-- from lib/data/brands.ts.
+insert into storage.buckets (id, name, public)
+values ('brand-logos', 'brand-logos', false)
 on conflict (id) do update set public = false;

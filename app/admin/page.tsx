@@ -17,6 +17,7 @@ import InviteUserForm from "@/app/components/InviteUserForm";
 import InviteOpspotUserForm from "@/app/components/InviteOpspotUserForm";
 import ActivityLog from "@/app/components/ActivityLog";
 import RenameField from "@/app/components/RenameField";
+import BrandLogoField from "@/app/components/BrandLogoField";
 import DeleteSiteButton from "@/app/components/DeleteSiteButton";
 import RetentionField from "@/app/components/RetentionField";
 import UsersTable from "@/app/components/UsersTable";
@@ -178,10 +179,11 @@ export default async function AdminPage({
             </SectionCard>
             <DataTable
               title="Brands"
-              columns={["Name", "Sites"]}
+              columns={["Name", "Logo", "Sites"]}
               emptyMessage="No brands yet."
               rows={brands.map((b) => [
                 <RenameField key={b.id} id={b.id} name={b.name} action={renameBrandAction} />,
+                <BrandLogoField key={b.id} brandId={b.id} logoUrl={b.logoUrl} />,
                 String(sites.filter((s) => s.brandId === b.id).length),
               ])}
             />

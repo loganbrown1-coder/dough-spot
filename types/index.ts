@@ -11,6 +11,7 @@ export interface Brand {
   id: string;
   organisationId: string;
   name: string;
+  logoUrl: string | null;
 }
 
 export interface Site {

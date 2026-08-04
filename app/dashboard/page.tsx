@@ -167,9 +167,21 @@ export default async function DashboardPage({
             />
           ) : (
             <div className="flex flex-col gap-8">
-              {groupSitesByBrand(visibleSites, brands).map((group) => (
+              {groupSitesByBrand(visibleSites, brands).map((group) => {
+                const brand = brands.find((b) => b.id === group.sites[0]?.brandId);
+                return (
                 <div key={group.brandName} className="flex flex-col gap-5">
-                  <h2 className="text-lg font-extrabold text-navy">{group.brandName}</h2>
+                  <div className="flex items-center gap-2.5">
+                    {brand?.logoUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={brand.logoUrl}
+                        alt=""
+                        className="h-8 w-8 rounded object-contain"
+                      />
+                    )}
+                    <h2 className="text-lg font-extrabold text-navy">{group.brandName}</h2>
+                  </div>
                   {group.sites.map((site) => (
                     <SiteSection
                       key={site.id}
@@ -184,7 +196,8 @@ export default async function DashboardPage({
                     />
                   ))}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
