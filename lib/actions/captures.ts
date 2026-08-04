@@ -6,6 +6,7 @@ import {
   listCaptures,
   getCapture,
   replaceCaptures,
+  addCapture,
   updateCaptureRating,
   updateCaptureMenuItem,
   updateCaptureImage,
@@ -335,6 +336,69 @@ export async function replaceCaptureImageAction(
       action: "replace",
     });
     return { imageUrl };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to save photo." };
+  }
+}
+
+/**
+ * Adds a photo to one currently-empty slot in a partially-uploaded day
+ * part, without requiring the other slots to be (re)provided - the gap
+ * that previously forced someone with, say, only one new photo to submit
+ * the same file three times just to satisfy uploadCapturesAction's "all
+ * three or nothing" requirement.
+ */
+export async function addCaptureAction(
+  siteId: string,
+  date: string,
+  dayPartId: string,
+  sequence: number,
+  file: File,
+  thumbnail: File | null = null
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!canManageCaptures(user.role)) {
+    return { error: "Only OpSpot agents and admins can upload a photo." };
+  }
+  if (!(await canAccessSite(siteId))) {
+    return { error: "You do not have access to that site." };
+  }
+  const ext = imageExtension(file);
+  if (!ext) return { error: IMAGE_TYPE_ERROR };
+
+  const admin = getSupabaseAdmin();
+  const objectPath = `${siteId}/${date}/${dayPartId}/${sequence}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error: uploadError } = await admin.storage
+    .from(BUCKET)
+    .upload(objectPath, buffer, { contentType: file.type, upsert: true });
+  if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+
+  await uploadThumbnail(admin, objectPath, thumbnail);
+
+  const { data: publicUrl } = admin.storage.from(BUCKET).getPublicUrl(objectPath);
+  const imageUrl = withCacheBust(publicUrl.publicUrl);
+
+  try {
+    const saved = await addCapture({
+      siteId,
+      date,
+      dayPartId,
+      image: { sequence, imageUrl, source: "manual", menuItemId: null },
+    });
+    await logEvent({
+      siteId,
+      date,
+      dayPartId,
+      sequence,
+      captureId: saved.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      action: "upload",
+    });
+    return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to save photo." };
   }

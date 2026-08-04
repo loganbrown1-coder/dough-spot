@@ -231,6 +231,41 @@ export async function replaceCaptures(params: {
 }
 
 /**
+ * Adds a single new capture to one currently-empty sequence slot, without
+ * touching whatever else exists in that day part - unlike replaceCaptures,
+ * which always provides (and replaces) the full set of three. This is what
+ * lets someone add just the photo they actually have when a shift is only
+ * partially uploaded, instead of being forced to resubmit all three.
+ * unique(site_id, date, day_part_id, sequence) is what actually guarantees
+ * this can't silently overwrite an existing photo - a concurrent add to
+ * the same slot fails here with a constraint violation instead.
+ */
+export async function addCapture(params: {
+  siteId: string;
+  date: string;
+  dayPartId: string;
+  image: NewCaptureImage;
+}): Promise<Capture> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("captures")
+    .insert({
+      site_id: params.siteId,
+      date: params.date,
+      day_part_id: params.dayPartId,
+      sequence: params.image.sequence,
+      image_url: params.image.imageUrl,
+      captured_at: new Date().toISOString(),
+      source: params.image.source,
+      menu_item_id: params.image.menuItemId ?? null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return rowToCapture(data);
+}
+
+/**
  * Sets or clears the star rating (1-5, or null to clear) on a single
  * capture. Anyone who can see the capture can rate it - enforced by the
  * `captures_update` row level security policy, not an app-level check.

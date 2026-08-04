@@ -191,13 +191,21 @@ export default function UploadForm({
     refetchExisting();
   }, [refetchExisting]);
 
+  // Depends on `state` itself, not `state.success` - useActionState returns
+  // a new object on every submission, but a second (or third...) upload in
+  // the same page load still resolves to success: true, the same value as
+  // before. An effect keyed on state.success only re-runs when that value
+  // actually changes, so it fired after the first successful upload and
+  // then silently stopped - existingCaptures/dayPartComplete went stale
+  // after that, which is what made the day part after next need a full
+  // page refresh to behave correctly.
   useEffect(() => {
     if (state.success) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       refetchExisting();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.success]);
+  }, [state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-5" key={state.success ? "reset" : "form"}>

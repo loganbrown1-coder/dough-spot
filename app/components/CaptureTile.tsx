@@ -6,6 +6,7 @@ import {
   rateCaptureAction,
   updateCaptureMenuItemAction,
   replaceCaptureImageAction,
+  addCaptureAction,
   deleteCaptureAction,
   flagCaptureAction,
   resolveFlagAction,
@@ -266,19 +267,65 @@ export default function CaptureTile({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const canManage = viewerRole === "agent" || viewerRole === "super_admin";
+
+  async function handleAdd(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const compressed = await compressImage(file);
+      const thumbnail = await compressThumbnail(file);
+      const result = await addCaptureAction(siteId, date, dayPartId, sequence, compressed, thumbnail);
+      if (result.error) setError(result.error);
+      else notifyChanged();
+    } finally {
+      setBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   if (!capture) {
+    // A day part can be partially uploaded (e.g. only 1 of 3 photos exist
+    // yet), and this empty slot is how the missing ones get added one at
+    // a time - previously the only way to add a photo here was through
+    // uploadCapturesAction's "provide all three" form, which forced
+    // resubmitting photos that already existed just to satisfy it.
+    if (readOnly || !canManage) {
+      return (
+        <div
+          className="aspect-square overflow-hidden rounded-brand"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, #EDEFF2 0 8px, #E3E7EB 8px 16px)",
+          }}
+        />
+      );
+    }
     return (
-      <div
-        className="aspect-square overflow-hidden rounded-brand"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(45deg, #EDEFF2 0 8px, #E3E7EB 8px 16px)",
-        }}
-      />
+      <div className="flex flex-col gap-1">
+        <label className="relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-brand border-[1.5px] border-dashed border-border-default bg-[#FAFBFC] text-center">
+          <span className="flex h-7 w-7 items-center justify-center rounded-brand bg-brand-bg text-brand">
+            ↑
+          </span>
+          <span className="text-[11px] font-semibold text-secondary">
+            {busy ? "Working..." : "Add photo"}
+          </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAdd}
+            disabled={busy}
+            className="sr-only"
+          />
+        </label>
+        {error && <p className="text-[10px] text-red-600">{error}</p>}
+      </div>
     );
   }
 
-  const canManage = viewerRole === "agent" || viewerRole === "super_admin";
   const canFlag = viewerRole === "ops" || viewerRole === "site_manager" || viewerRole === "super_admin";
   const alt = `${dayPartLabel} photo ${sequence}`;
   const menuItemName = menuItems.find((m) => m.id === capture.menuItemId)?.name;
