@@ -3,10 +3,9 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { loginAction, type LoginState } from "@/lib/actions/auth";
-import PasswordInput from "@/app/components/PasswordInput";
+import { forgotPasswordAction, type ForgotPasswordState } from "@/lib/actions/auth";
 
-const initialState: LoginState = {};
+const initialState: ForgotPasswordState = {};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -16,13 +15,29 @@ function SubmitButton() {
       disabled={pending}
       className="h-[42px] w-full rounded-brand bg-brand font-bold text-white transition hover:bg-brand-light disabled:opacity-60"
     >
-      {pending ? "Signing in..." : "Sign in"}
+      {pending ? "Sending..." : "Send reset link"}
     </button>
   );
 }
 
-export default function LoginForm() {
-  const [state, formAction] = useActionState(loginAction, initialState);
+export default function ForgotPasswordForm() {
+  const [state, formAction] = useActionState(forgotPasswordAction, initialState);
+
+  if (state.success) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="rounded-brand border border-border-default bg-[#FAFBFC] px-3 py-2.5 text-[13px] text-body">
+          If an account exists for that email, we&apos;ve sent a link to reset your password.
+        </p>
+        <Link
+          href="/login"
+          className="text-center text-[13px] font-bold text-brand hover:text-brand-light"
+        >
+          Back to sign in
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -39,32 +54,18 @@ export default function LoginForm() {
           className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
         />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <label htmlFor="password" className="text-[13px] font-bold text-body">
-            Password
-          </label>
-          <Link
-            href="/forgot-password"
-            className="text-[12px] font-semibold text-brand hover:text-brand-light"
-          >
-            Forgot password?
-          </Link>
-        </div>
-        <PasswordInput
-          id="password"
-          name="password"
-          required
-          autoComplete="current-password"
-          className="h-10 rounded-brand border border-border-default px-3 text-sm text-body"
-        />
-      </div>
       {state.error && (
         <p className="rounded-brand border border-error-border bg-error-bg px-3 py-2.5 text-[13px] text-error">
           {state.error}
         </p>
       )}
       <SubmitButton />
+      <Link
+        href="/login"
+        className="text-center text-[13px] font-bold text-brand hover:text-brand-light"
+      >
+        Back to sign in
+      </Link>
     </form>
   );
 }

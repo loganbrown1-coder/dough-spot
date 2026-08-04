@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/supabase-server";
+import { redirectUrl } from "@/lib/site-url";
 
 export interface LoginState {
   error?: string;
@@ -58,4 +59,28 @@ export async function setPasswordAction(
   }
 
   redirect("/dashboard");
+}
+
+export interface ForgotPasswordState {
+  error?: string;
+  success?: boolean;
+}
+
+export async function forgotPasswordAction(
+  _prevState: ForgotPasswordState,
+  formData: FormData
+): Promise<ForgotPasswordState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) {
+    return { error: "Enter your email address." };
+  }
+
+  const supabase = await createClient();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: redirectUrl(),
+  });
+
+  // Supabase doesn't report whether the email actually has an account, so
+  // the response here can't either - always say a link was sent.
+  return { success: true };
 }

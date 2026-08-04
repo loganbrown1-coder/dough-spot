@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/auth";
+import { redirectUrl } from "@/lib/site-url";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
 import { createBrand, getBrand, updateBrandName, updateBrandLogo, deleteBrand } from "@/lib/data/brands";
@@ -45,11 +46,6 @@ const DEFAULT_DAY_PARTS = [
 export interface AdminFormState {
   error?: string;
   success?: boolean;
-}
-
-function redirectUrl(): string {
-  const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
-  return `${siteUrl.replace(/\/$/, "")}/auth/callback`;
 }
 
 /**
