@@ -4,22 +4,27 @@ import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
-import { createBrand, getBrand, updateBrandName, updateBrandLogo } from "@/lib/data/brands";
+import { createBrand, getBrand, updateBrandName, updateBrandLogo, deleteBrand } from "@/lib/data/brands";
 import {
   createSite,
   getSite,
+  listSitesByBrand,
   updateSiteName,
   deleteSite,
   forceDeleteSiteAndAllData,
 } from "@/lib/data/sites";
-import { createMenuItem, updateMenuItemName } from "@/lib/data/menuItems";
+import { createMenuItem, updateMenuItemName, listMenuItemsByBrand } from "@/lib/data/menuItems";
 import {
   createDayPart,
   updateDayPart,
   deleteDayPart,
   listDayPartsByOrganisation,
 } from "@/lib/data/dayParts";
-import { countCapturesForDayPart, countCapturesForSite } from "@/lib/data/captures";
+import {
+  countCapturesForDayPart,
+  countCapturesForSite,
+  countCapturesUsingMenuItems,
+} from "@/lib/data/captures";
 import { countCaptureEventsForSite } from "@/lib/data/captureEvents";
 import { listProfiles } from "@/lib/data/profiles";
 import { ROLE_LABELS } from "@/lib/roleLabels";
@@ -162,6 +167,59 @@ export async function renameBrandAction(
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to rename brand." };
+  }
+}
+
+/**
+ * Refuses to delete a brand that still has any sites, an assigned user,
+ * or a menu item genuinely in use - sites.brand_id and profiles.brand_id
+ * are both "on delete cascade" at the database level (unlike sites,
+ * which are protected from cascading into real photo data by captures'
+ * "on delete restrict"), so without these checks a brand delete could
+ * silently take an ops user's account access down with it. Each site
+ * still has to go through deleteSiteAction's own capture/history checks
+ * first - this only ever runs once a brand has nothing left under it.
+ */
+export async function deleteBrandAction(id: string): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const [sites, menuItems, profiles] = await Promise.all([
+    listSitesByBrand(id),
+    listMenuItemsByBrand(id),
+    listProfiles(),
+  ]);
+
+  if (sites.length > 0) {
+    return {
+      error: `Can't remove — ${sites.length} site${sites.length === 1 ? "" : "s"} still exist under this brand. Remove them first.`,
+    };
+  }
+
+  const usedMenuItems = await countCapturesUsingMenuItems(menuItems.map((m) => m.id));
+  if (usedMenuItems > 0) {
+    return { error: "Can't remove — a menu item under this brand is still used by existing photos." };
+  }
+
+  const assignedUsers = profiles.filter((p) => p.brandId === id);
+  if (assignedUsers.length > 0) {
+    return {
+      error: `Can't remove — ${assignedUsers.length} user${assignedUsers.length === 1 ? " is" : "s are"} still assigned to this brand. Reassign or remove them first.`,
+    };
+  }
+
+  const admin = getSupabaseAdmin();
+  const { data: logoFiles } = await admin.storage.from(BRAND_LOGO_BUCKET).list(id);
+  if (logoFiles && logoFiles.length > 0) {
+    await admin.storage.from(BRAND_LOGO_BUCKET).remove(logoFiles.map((f) => `${id}/${f.name}`));
+  }
+
+  try {
+    await deleteBrand(id);
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove brand." };
   }
 }
 

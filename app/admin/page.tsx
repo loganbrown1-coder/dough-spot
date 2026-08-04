@@ -19,6 +19,7 @@ import ActivityLog from "@/app/components/ActivityLog";
 import RenameField from "@/app/components/RenameField";
 import BrandLogoField from "@/app/components/BrandLogoField";
 import DeleteSiteButton from "@/app/components/DeleteSiteButton";
+import DeleteBrandButton from "@/app/components/DeleteBrandButton";
 import RetentionField from "@/app/components/RetentionField";
 import UsersTable from "@/app/components/UsersTable";
 import AdminTabs, { type AdminTab } from "@/app/components/AdminTabs";
@@ -179,12 +180,13 @@ export default async function AdminPage({
             </SectionCard>
             <DataTable
               title="Brands"
-              columns={["Name", "Logo", "Sites"]}
+              columns={["Name", "Logo", "Sites", "Actions"]}
               emptyMessage="No brands yet."
               rows={brands.map((b) => [
                 <RenameField key={b.id} id={b.id} name={b.name} action={renameBrandAction} />,
                 <BrandLogoField key={b.id} brandId={b.id} logoUrl={b.logoUrl} />,
                 String(sites.filter((s) => s.brandId === b.id).length),
+                <DeleteBrandButton key={b.id} id={b.id} name={b.name} />,
               ])}
             />
             <SectionCard title="Add a site">

@@ -246,6 +246,9 @@ create policy "brands_insert" on brands for insert with check (
 create policy "brands_update" on brands for update using (
   (select role from current_profile()) = 'super_admin'
 );
+create policy "brands_delete" on brands for delete using (
+  (select role from current_profile()) = 'super_admin'
+);
 
 -- menu_items: readable by anyone in that brand's scope; only super_admin
 -- adds/renames menu items (admin-page only).

@@ -378,3 +378,22 @@ export async function countCapturesForSite(siteId: string): Promise<number> {
   if (error) throw error;
   return count ?? 0;
 }
+
+/**
+ * Used by deleteBrandAction. By the time it's called, the brand already
+ * has zero sites left (checked first), so structurally no capture could
+ * reference one of its menu items through the normal upload flow - this
+ * is a defensive check, not the primary guard, in case that's ever not
+ * true (e.g. a menu item shared or moved in some way this app doesn't
+ * currently do). menuItemIds empty means nothing to check.
+ */
+export async function countCapturesUsingMenuItems(menuItemIds: string[]): Promise<number> {
+  if (menuItemIds.length === 0) return 0;
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("captures")
+    .select("*", { count: "exact", head: true })
+    .in("menu_item_id", menuItemIds);
+  if (error) throw error;
+  return count ?? 0;
+}

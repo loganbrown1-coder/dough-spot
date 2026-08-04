@@ -91,3 +91,19 @@ export async function updateBrandLogo(id: string, logoUrl: string | null): Promi
   const { error } = await supabase.from("brands").update({ logo_url: logoUrl }).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * sites.brand_id and menu_items.brand_id are both "on delete cascade" at
+ * the database level, and so is profiles.brand_id - unlike sites (which
+ * are protected from cascading into real photo data by captures' "on
+ * delete restrict"), a directly-assigned ops user's profile would
+ * silently cascade-delete right along with the brand with no FK error to
+ * catch. deleteBrandAction pre-checks for sites, menu items in use, and
+ * assigned users before ever calling this, so by the time this runs
+ * there's nothing left that a raw delete could take down unexpectedly.
+ */
+export async function deleteBrand(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("brands").delete().eq("id", id);
+  if (error) throw error;
+}
