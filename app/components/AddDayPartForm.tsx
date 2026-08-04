@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createDayPartAction, type DayPartFormState } from "@/lib/actions/admin";
 
@@ -21,9 +21,18 @@ function SubmitButton() {
 
 export default function AddDayPartForm({ organisationId }: { organisationId: string }) {
   const [state, formAction] = useActionState(createDayPartAction, initialState);
+  // See AddSiteForm for why this is a counter rather than
+  // state.success ? "reset" : "form" - that only remounts once.
+  const [resetKey, setResetKey] = useState(0);
+  useEffect(() => {
+    if (state.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResetKey((k) => k + 1);
+    }
+  }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
+    <form action={formAction} className="flex flex-col gap-3.5" key={resetKey}>
       <input type="hidden" name="organisationId" value={organisationId} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-[140px] flex-1 flex-col gap-1.5">

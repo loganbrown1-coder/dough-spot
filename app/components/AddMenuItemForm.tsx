@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createMenuItemAction, type AdminFormState } from "@/lib/actions/admin";
 import type { Brand } from "@/types";
@@ -23,9 +23,20 @@ function SubmitButton() {
 export default function AddMenuItemForm({ brands }: { brands: Brand[] }) {
   const [state, formAction] = useActionState(createMenuItemAction, initialState);
   const [fileName, setFileName] = useState<string | null>(null);
+  // See AddSiteForm for why this is a counter rather than
+  // state.success ? "reset" : "form" - that only remounts once. The
+  // remount also resets fileName above, since it's local state in this
+  // same subtree.
+  const [resetKey, setResetKey] = useState(0);
+  useEffect(() => {
+    if (state.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResetKey((k) => k + 1);
+    }
+  }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
+    <form action={formAction} className="flex flex-col gap-3.5" key={resetKey}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-1.5">
           <label className="text-xs font-bold text-body">Brand</label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createSiteAction, type AdminFormState } from "@/lib/actions/admin";
 import type { Brand } from "@/types";
@@ -22,9 +22,23 @@ function SubmitButton() {
 
 export default function AddSiteForm({ brands }: { brands: Brand[] }) {
   const [state, formAction] = useActionState(createSiteAction, initialState);
+  // A plain key={state.success ? "reset" : "form"} only remounts (and so
+  // only clears the form) on the *first* successful submission in a page
+  // load - state.success stays true -> true after that, so a second add
+  // would leave the just-submitted values sitting in the fields. This
+  // counter increments on every success, keyed on `state` itself (a new
+  // object every submission, unlike .success) so the effect actually
+  // re-fires each time.
+  const [resetKey, setResetKey] = useState(0);
+  useEffect(() => {
+    if (state.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResetKey((k) => k + 1);
+    }
+  }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
+    <form action={formAction} className="flex flex-col gap-3.5" key={resetKey}>
       <div className="flex items-end gap-3">
         <div className="flex flex-1 flex-col gap-1.5">
           <label className="text-xs font-bold text-body">Brand</label>

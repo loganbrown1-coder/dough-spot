@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   createOrganisationAction,
@@ -24,9 +24,18 @@ function SubmitButton() {
 
 export default function CreateOrganisationForm() {
   const [state, formAction] = useActionState(createOrganisationAction, initialState);
+  // See AddSiteForm for why this is a counter rather than
+  // state.success ? "reset" : "form" - that only remounts once.
+  const [resetKey, setResetKey] = useState(0);
+  useEffect(() => {
+    if (state.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResetKey((k) => k + 1);
+    }
+  }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3.5" key={state.success ? "reset" : "form"}>
+    <form action={formAction} className="flex flex-col gap-3.5" key={resetKey}>
       <div className="flex flex-col items-end gap-3 sm:flex-row">
         <div className="flex w-full flex-1 flex-col gap-1.5">
           <label className="text-xs font-bold text-body">Organisation name</label>
