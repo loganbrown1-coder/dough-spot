@@ -10,7 +10,6 @@ const ACTION_LABELS: Record<CaptureEventAction, string> = {
   replace: "Replaced",
   delete: "Deleted",
   clear_day_part: "Cleared (day part)",
-  rate: "Rated",
   flag: "Flagged",
   resolve_flag: "Resolved flag",
   purge: "Auto-deleted (retention)",

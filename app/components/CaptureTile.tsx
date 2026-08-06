@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  rateCaptureAction,
   updateCaptureMenuItemAction,
   replaceCaptureImageAction,
   addCaptureAction,
@@ -13,64 +12,6 @@ import {
 } from "@/lib/actions/captures";
 import { compressImage, compressThumbnail } from "@/lib/compressImage";
 import type { Capture, MenuItem, Role } from "@/types";
-
-function StarRating({
-  captureId,
-  rating,
-  readOnly,
-}: {
-  captureId: string;
-  rating: number | null;
-  readOnly?: boolean;
-}) {
-  const [value, setValue] = useState(rating);
-  const [, startTransition] = useTransition();
-
-  if (readOnly) {
-    return (
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <span
-            key={n}
-            className={`text-sm leading-none ${
-              rating !== null && n <= rating ? "text-brand" : "text-border-default"
-            }`}
-          >
-            ★
-          </span>
-        ))}
-      </div>
-    );
-  }
-
-  function handleClick(n: number) {
-    const next = value === n ? null : n;
-    const previous = value;
-    setValue(next);
-    startTransition(async () => {
-      const result = await rateCaptureAction(captureId, next);
-      if (result.error) setValue(previous);
-    });
-  }
-
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => handleClick(n)}
-          aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
-          className={`text-sm leading-none ${
-            value !== null && n <= value ? "text-brand" : "text-border-default"
-          } hover:text-brand-light`}
-        >
-          ★
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function MenuItemSelect({
   captureId,
@@ -266,6 +207,7 @@ export default function CaptureTile({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addCommentRef = useRef<HTMLTextAreaElement>(null);
 
   const canManage = viewerRole === "agent" || viewerRole === "super_admin";
 
@@ -277,9 +219,21 @@ export default function CaptureTile({
     try {
       const compressed = await compressImage(file);
       const thumbnail = await compressThumbnail(file);
-      const result = await addCaptureAction(siteId, date, dayPartId, sequence, compressed, thumbnail);
+      const comment = addCommentRef.current?.value.trim() || null;
+      const result = await addCaptureAction(
+        siteId,
+        date,
+        dayPartId,
+        sequence,
+        compressed,
+        thumbnail,
+        comment
+      );
       if (result.error) setError(result.error);
-      else notifyChanged();
+      else {
+        if (addCommentRef.current) addCommentRef.current.value = "";
+        notifyChanged();
+      }
     } finally {
       setBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -321,6 +275,13 @@ export default function CaptureTile({
             className="sr-only"
           />
         </label>
+        <textarea
+          ref={addCommentRef}
+          rows={2}
+          placeholder="Comment (optional)"
+          disabled={busy}
+          className="resize-none rounded-brand border border-border-default px-2 py-1 text-[10px] text-body"
+        />
         {error && <p className="text-[10px] text-red-600">{error}</p>}
       </div>
     );
@@ -436,7 +397,11 @@ export default function CaptureTile({
         </p>
       )}
 
-      <StarRating captureId={capture.id} rating={capture.rating} readOnly={readOnly || !canManage} />
+      {capture.comment && (
+        <p className="rounded-brand border border-border-default bg-app px-2 py-1 text-[10px] leading-snug text-secondary">
+          {capture.comment}
+        </p>
+      )}
 
       <FlagControl
         captureId={capture.id}

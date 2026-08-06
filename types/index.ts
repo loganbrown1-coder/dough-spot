@@ -50,7 +50,10 @@ export interface Capture {
   capturedAt: string; // ISO timestamp
   source: CaptureSource;
   menuItemId: string | null;
-  rating: number | null; // 1-5
+  // Set by the uploader at upload time - e.g. explaining why a photo isn't
+  // clearer. Distinct from flagComment below, which a viewer attaches to an
+  // already-uploaded photo to report a problem with it.
+  comment: string | null;
   flagged: boolean;
   flagComment: string | null;
   flaggedBy: string | null;
@@ -63,7 +66,6 @@ export type CaptureEventAction =
   | "replace"
   | "delete"
   | "clear_day_part"
-  | "rate"
   | "flag"
   | "resolve_flag"
   | "purge";

@@ -48,7 +48,7 @@ function rowToCapture(row: {
   captured_at: string;
   source: string;
   menu_item_id: string | null;
-  rating: number | null;
+  comment: string | null;
   flagged: boolean;
   flag_comment: string | null;
   flagged_by: string | null;
@@ -69,7 +69,7 @@ function rowToCapture(row: {
     capturedAt: row.captured_at,
     source: row.source as CaptureSource,
     menuItemId: row.menu_item_id,
-    rating: row.rating,
+    comment: row.comment,
     flagged: row.flagged,
     flagComment: row.flag_comment,
     flaggedBy: row.flagged_by,
@@ -182,6 +182,7 @@ export interface NewCaptureImage {
   imageUrl: string;
   source: CaptureSource;
   menuItemId?: string | null;
+  comment?: string | null;
 }
 
 /**
@@ -219,6 +220,7 @@ export async function replaceCaptures(params: {
     captured_at: capturedAt,
     source: image.source,
     menu_item_id: image.menuItemId ?? null,
+    comment: image.comment ?? null,
   }));
 
   const { data, error: insertError } = await supabase
@@ -258,28 +260,12 @@ export async function addCapture(params: {
       captured_at: new Date().toISOString(),
       source: params.image.source,
       menu_item_id: params.image.menuItemId ?? null,
+      comment: params.image.comment ?? null,
     })
     .select("*")
     .single();
   if (error) throw error;
   return rowToCapture(data);
-}
-
-/**
- * Sets or clears the star rating (1-5, or null to clear) on a single
- * capture. Anyone who can see the capture can rate it - enforced by the
- * `captures_update` row level security policy, not an app-level check.
- */
-export async function updateCaptureRating(
-  captureId: string,
-  rating: number | null
-): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("captures")
-    .update({ rating })
-    .eq("id", captureId);
-  if (error) throw error;
 }
 
 /** Retags a single capture with a different menu item, or clears it. */

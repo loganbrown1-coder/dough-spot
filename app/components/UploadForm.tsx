@@ -114,6 +114,12 @@ function PhotoDropzone({ n, menuItems }: { n: number; menuItems: MenuItem[] }) {
           </option>
         ))}
       </select>
+      <textarea
+        name={`comment${n}`}
+        rows={2}
+        placeholder="Comment (optional) - e.g. no clearer photo available"
+        className="resize-none rounded-brand border border-border-default px-2.5 py-2 text-xs text-body"
+      />
       {selectedMenuItem?.referenceImageUrl && (
         <div className="flex flex-col items-center gap-2 rounded-brand border border-border-default bg-app p-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -207,8 +213,20 @@ export default function UploadForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  // See AddSiteForm for why this is a counter rather than
+  // state.success ? "reset" : "form" - that only remounts once. The
+  // remount is what clears each PhotoDropzone's file/menu item/comment
+  // state between shifts, not just on the very first successful upload.
+  const [resetKey, setResetKey] = useState(0);
+  useEffect(() => {
+    if (state.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setResetKey((k) => k + 1);
+    }
+  }, [state]);
+
   return (
-    <form action={formAction} className="flex flex-col gap-5" key={state.success ? "reset" : "form"}>
+    <form action={formAction} className="flex flex-col gap-5" key={resetKey}>
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="flex flex-1 flex-col gap-1.5">
           <label htmlFor="siteId" className="text-[13px] font-bold text-body">

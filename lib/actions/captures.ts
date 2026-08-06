@@ -7,7 +7,6 @@ import {
   getCapture,
   replaceCaptures,
   addCapture,
-  updateCaptureRating,
   updateCaptureMenuItem,
   updateCaptureImage,
   deleteCapture,
@@ -128,6 +127,7 @@ export async function uploadCapturesAction(
 
   const files: File[] = [];
   const menuItemIds: (string | null)[] = [];
+  const comments: (string | null)[] = [];
   for (const key of ["photo1", "photo2", "photo3"]) {
     const file = formData.get(key);
     if (!(file instanceof File) || file.size === 0) {
@@ -139,6 +139,8 @@ export async function uploadCapturesAction(
     files.push(file);
     const menuItemId = String(formData.get(`menuItem${files.length}`) ?? "");
     menuItemIds.push(menuItemId || null);
+    const comment = String(formData.get(`comment${files.length}`) ?? "").trim();
+    comments.push(comment || null);
   }
 
   const supabase = getSupabaseAdmin();
@@ -180,6 +182,7 @@ export async function uploadCapturesAction(
       imageUrl: withCacheBust(publicUrl.publicUrl),
       source: "manual",
       menuItemId: menuItemIds[i],
+      comment: comments[i],
     });
   }
 
@@ -199,32 +202,6 @@ export async function uploadCapturesAction(
   }
 
   return { success: true };
-}
-
-/**
- * Sets (or, passing null, clears) the star rating on a single photo.
- * Only an agent or admin sets a rating - a customer sees it but can't
- * change it (they can flag it instead, see flagCaptureAction).
- */
-export async function rateCaptureAction(
-  captureId: string,
-  rating: number | null
-): Promise<{ error?: string }> {
-  const user = await getCurrentUser();
-  if (!user) return { error: "You must be signed in to rate photos." };
-  if (!canManageCaptures(user.role)) {
-    return { error: "Only OpSpot agents and admins can rate photos." };
-  }
-  if (rating !== null && (rating < 1 || rating > 5)) {
-    return { error: "Rating must be between 1 and 5." };
-  }
-
-  try {
-    await updateCaptureRating(captureId, rating);
-    return {};
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to save rating." };
-  }
 }
 
 /** Retags an already-uploaded photo with a different menu item (or clears it). */
@@ -354,7 +331,8 @@ export async function addCaptureAction(
   dayPartId: string,
   sequence: number,
   file: File,
-  thumbnail: File | null = null
+  thumbnail: File | null = null,
+  comment: string | null = null
 ): Promise<{ error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "You must be signed in." };
@@ -386,7 +364,7 @@ export async function addCaptureAction(
       siteId,
       date,
       dayPartId,
-      image: { sequence, imageUrl, source: "manual", menuItemId: null },
+      image: { sequence, imageUrl, source: "manual", menuItemId: null, comment },
     });
     await logEvent({
       siteId,

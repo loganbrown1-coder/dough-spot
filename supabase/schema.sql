@@ -70,7 +70,10 @@ create table if not exists captures (
   captured_at timestamptz not null default now(),
   source text not null default 'manual',
   menu_item_id uuid references menu_items(id),
-  rating smallint check (rating is null or rating between 1 and 5),
+  -- Set by the uploader at upload time - e.g. explaining why a photo isn't
+  -- clearer. Distinct from flag_comment below, which a viewer attaches to
+  -- an already-uploaded photo to report a problem with it.
+  comment text,
   -- A customer (ops/site_manager) can flag a photo with a note - e.g. it
   -- was tagged wrong - for an agent to review and resolve. flagged_by_email
   -- is denormalized (same reason as capture_events.actor_email below) - an
@@ -89,8 +92,8 @@ create table if not exists captures (
 --   super_admin  -> organisation_id, brand_id, site_id all null (OpSpot's
 --                   own admin, sees and manages everything)
 --   agent        -> organisation_id, brand_id, site_id all null (OpSpot's
---                   own uploader - uploads/replaces/deletes/rates photos
---                   for any customer, but no admin access)
+--                   own uploader - uploads/replaces/deletes photos for any
+--                   customer, but no admin access)
 --   ops          -> brand_id set (customer, sees every site under that
 --                   brand - view-only, plus can flag a photo)
 --   site_manager -> site_id set (customer, sees that one site - view-only,
@@ -111,9 +114,9 @@ create table if not exists profiles (
   created_at timestamptz not null default now()
 );
 
--- Append-only audit log: every upload, replace, delete, clear-all, rating
--- change, flag, resolve, and scheduled purge writes a row here, so an
--- admin can open a site + date and see who did what, when.
+-- Append-only audit log: every upload, replace, delete, clear-all, flag,
+-- resolve, and scheduled purge writes a row here, so an admin can open a
+-- site + date and see who did what, when.
 create table if not exists capture_events (
   id uuid primary key default gen_random_uuid(),
   -- "on delete restrict" means a site with audit history against it can't
@@ -125,7 +128,7 @@ create table if not exists capture_events (
   capture_id uuid references captures(id) on delete set null,
   actor_id uuid references profiles(id) on delete set null,
   actor_email text not null,
-  action text not null, -- 'upload' | 'replace' | 'delete' | 'clear_day_part' | 'rate' | 'flag' | 'resolve_flag' | 'purge'
+  action text not null, -- 'upload' | 'replace' | 'delete' | 'clear_day_part' | 'flag' | 'resolve_flag' | 'purge'
   detail text,
   created_at timestamptz not null default now()
 );
@@ -347,7 +350,7 @@ begin
     or new.captured_at is distinct from old.captured_at
     or new.source is distinct from old.source
     or new.menu_item_id is distinct from old.menu_item_id
-    or new.rating is distinct from old.rating
+    or new.comment is distinct from old.comment
   then
     raise exception 'Only OpSpot agents and admins can change this field.';
   end if;

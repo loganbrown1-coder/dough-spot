@@ -2,7 +2,6 @@
 
 import { useRef, useState, useTransition, type ChangeEvent } from "react";
 import {
-  rateCaptureAction,
   updateCaptureMenuItemAction,
   replaceCaptureImageAction,
   deleteCaptureAction,
@@ -20,39 +19,6 @@ function formatRelative(iso: string): string {
   const hours = Math.round(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
-}
-
-function MiniStars({ captureId, rating }: { captureId: string; rating: number | null }) {
-  const [value, setValue] = useState(rating);
-  const [, startTransition] = useTransition();
-
-  function handleClick(n: number) {
-    const next = value === n ? null : n;
-    const previous = value;
-    setValue(next);
-    startTransition(async () => {
-      const result = await rateCaptureAction(captureId, next);
-      if (result.error) setValue(previous);
-    });
-  }
-
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => handleClick(n)}
-          aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
-          className={`text-sm leading-none ${
-            value !== null && n <= value ? "text-brand" : "text-border-default"
-          } hover:text-brand-light`}
-        >
-          ★
-        </button>
-      ))}
-    </div>
-  );
 }
 
 function MiniMenuItemSelect({
@@ -222,13 +188,18 @@ export default function FlaggedRow({
           )}
         </div>
 
+        {capture.comment && (
+          <p className="rounded-brand border border-border-default bg-white px-2.5 py-1.5 text-[12px] leading-snug text-secondary">
+            {capture.comment}
+          </p>
+        )}
+
         <div className="flex flex-wrap items-center gap-4">
           <MiniMenuItemSelect
             captureId={capture.id}
             menuItemId={capture.menuItemId}
             menuItems={menuItems}
           />
-          <MiniStars captureId={capture.id} rating={capture.rating} />
           <label className="cursor-pointer text-[12px] font-semibold text-secondary hover:text-brand">
             Replace
             <input
