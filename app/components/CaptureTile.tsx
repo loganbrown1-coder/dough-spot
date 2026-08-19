@@ -423,14 +423,20 @@ export default function CaptureTile({
           (see supabase/migrations/016_quality_assessments_internal_only.sql),
           so `quality` will simply be undefined for them regardless - this
           just avoids relying on that alone. */}
-      {quality && canManage && (
+      {canManage && (
         <>
-          <QualityBadge
-            assessment={quality}
-            identifiedMenuItemName={identifiedMenuItemName}
-            currentMenuItemName={menuItemName ?? null}
-            onChanged={notifyChanged}
-          />
+          {quality && (
+            <QualityBadge
+              assessment={quality}
+              identifiedMenuItemName={identifiedMenuItemName}
+              currentMenuItemName={menuItemName ?? null}
+              onChanged={notifyChanged}
+            />
+          )}
+          {/* Always shown, not just once a score exists - the modal itself
+              says "not scored yet" rather than the button appearing and
+              disappearing per photo depending on backend state, which read
+              as broken rather than "just not scored". */}
           <button
             type="button"
             onClick={() => setShowRankings(true)}
@@ -442,7 +448,7 @@ export default function CaptureTile({
             <QualityRankingsModal
               imageUrl={capture.imageUrl}
               alt={alt}
-              assessment={quality}
+              assessment={quality ?? null}
               onClose={() => setShowRankings(false)}
             />
           )}

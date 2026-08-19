@@ -30,7 +30,8 @@ export default function QualityRankingsModal({
 }: {
   imageUrl: string;
   alt: string;
-  assessment: QualityAssessmentRecord;
+  /** null when this photo hasn't been scored yet - shown as a "not scored" state rather than hiding the button that opens this modal. */
+  assessment: QualityAssessmentRecord | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -69,63 +70,95 @@ export default function QualityRankingsModal({
         </div>
 
         <div className="flex flex-1 flex-col gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`rounded-brand border px-2 py-0.5 text-xs font-bold ${scoreStyle(assessment.overallScore)}`}
-              >
-                Overall {assessment.overallScore}/5 · {assessment.verdict}
-              </span>
-              {assessment.confidence === "low" && (
-                <span className="text-[11px] font-semibold text-amber-700">Low confidence</span>
-              )}
-            </div>
-            <p className="mt-1.5 text-[13px] leading-snug text-secondary">{assessment.summary}</p>
-          </div>
+          {assessment ? (
+            <>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-brand border px-2 py-0.5 text-xs font-bold ${scoreStyle(assessment.overallScore)}`}
+                  >
+                    Overall {assessment.overallScore}/5 · {assessment.verdict}
+                  </span>
+                  {assessment.confidence === "low" && (
+                    <span className="text-[11px] font-semibold text-amber-700">Low confidence</span>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[13px] leading-snug text-secondary">{assessment.summary}</p>
+              </div>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            {AXES.map((axis) => {
-              const data = assessment[axis.key];
-              return (
-                <div
-                  key={axis.key}
-                  className="flex flex-col gap-1.5 rounded-brand border border-border-default p-2.5"
-                >
-                  <div className="flex items-center justify-between">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {AXES.map((axis) => {
+                  const data = assessment[axis.key];
+                  return (
+                    <div
+                      key={axis.key}
+                      className="flex flex-col gap-1.5 rounded-brand border border-border-default p-2.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[13px] font-bold text-navy">{axis.label}</p>
+                          <p className="text-[10px] text-muted">{axis.description}</p>
+                        </div>
+                        <span
+                          className={`rounded-brand border px-1.5 py-0.5 text-[11px] font-bold ${scoreStyle(data.score)}`}
+                        >
+                          {data.score}/5
+                        </span>
+                      </div>
+                      {data.defects.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {data.defects.map((defect) => (
+                            <span
+                              key={defect}
+                              className="rounded-brand bg-app px-1.5 py-0.5 text-[10px] font-semibold text-secondary"
+                            >
+                              {humanizeDefect(defect)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {data.notes && <p className="text-[11px] leading-snug text-secondary">{data.notes}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {assessment.humanReviewed && (
+                <p className="text-[11px] text-muted">
+                  Human-reviewed:{" "}
+                  <span className="font-semibold text-body">{assessment.humanVerdict}</span>
+                  {assessment.humanVerdict !== assessment.verdict && " (corrected from the model's verdict)"}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div>
+                <span className="rounded-brand border border-border-default bg-app px-2 py-0.5 text-xs font-bold text-secondary">
+                  Not scored yet
+                </span>
+                <p className="mt-1.5 text-[13px] leading-snug text-secondary">
+                  This photo hasn&apos;t been scored. Scoring runs automatically in the background
+                  shortly after a photo is uploaded.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {AXES.map((axis) => (
+                  <div
+                    key={axis.key}
+                    className="flex items-center justify-between rounded-brand border border-border-default p-2.5"
+                  >
                     <div>
                       <p className="text-[13px] font-bold text-navy">{axis.label}</p>
                       <p className="text-[10px] text-muted">{axis.description}</p>
                     </div>
-                    <span
-                      className={`rounded-brand border px-1.5 py-0.5 text-[11px] font-bold ${scoreStyle(data.score)}`}
-                    >
-                      {data.score}/5
+                    <span className="rounded-brand border border-border-default bg-app px-1.5 py-0.5 text-[11px] font-bold text-muted">
+                      —/5
                     </span>
                   </div>
-                  {data.defects.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {data.defects.map((defect) => (
-                        <span
-                          key={defect}
-                          className="rounded-brand bg-app px-1.5 py-0.5 text-[10px] font-semibold text-secondary"
-                        >
-                          {humanizeDefect(defect)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {data.notes && <p className="text-[11px] leading-snug text-secondary">{data.notes}</p>}
-                </div>
-              );
-            })}
-          </div>
-
-          {assessment.humanReviewed && (
-            <p className="text-[11px] text-muted">
-              Human-reviewed:{" "}
-              <span className="font-semibold text-body">{assessment.humanVerdict}</span>
-              {assessment.humanVerdict !== assessment.verdict && " (corrected from the model's verdict)"}
-            </p>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
