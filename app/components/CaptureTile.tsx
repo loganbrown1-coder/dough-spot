@@ -12,6 +12,7 @@ import {
 } from "@/lib/actions/captures";
 import { compressImage, compressThumbnail } from "@/lib/compressImage";
 import QualityBadge from "@/app/components/QualityBadge";
+import QualityRankingsModal from "@/app/components/QualityRankingsModal";
 import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, MenuItem, Role } from "@/types";
 
@@ -210,6 +211,7 @@ export default function CaptureTile({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showRankings, setShowRankings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addCommentRef = useRef<HTMLTextAreaElement>(null);
 
@@ -422,12 +424,29 @@ export default function CaptureTile({
           so `quality` will simply be undefined for them regardless - this
           just avoids relying on that alone. */}
       {quality && canManage && (
-        <QualityBadge
-          assessment={quality}
-          identifiedMenuItemName={identifiedMenuItemName}
-          currentMenuItemName={menuItemName ?? null}
-          onChanged={notifyChanged}
-        />
+        <>
+          <QualityBadge
+            assessment={quality}
+            identifiedMenuItemName={identifiedMenuItemName}
+            currentMenuItemName={menuItemName ?? null}
+            onChanged={notifyChanged}
+          />
+          <button
+            type="button"
+            onClick={() => setShowRankings(true)}
+            className="self-start text-[10px] font-semibold text-secondary hover:text-brand"
+          >
+            Rankings
+          </button>
+          {showRankings && (
+            <QualityRankingsModal
+              imageUrl={capture.imageUrl}
+              alt={alt}
+              assessment={quality}
+              onClose={() => setShowRankings(false)}
+            />
+          )}
+        </>
       )}
 
       <FlagControl
