@@ -4,6 +4,7 @@ import { useState } from "react";
 import CaptureTile from "@/app/components/CaptureTile";
 import ClearDayPartButton from "@/app/components/ClearDayPartButton";
 import Lightbox from "@/app/components/Lightbox";
+import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, MenuItem, Role } from "@/types";
 
 export default function DayPartPhotoGrid({
@@ -13,6 +14,11 @@ export default function DayPartPhotoGrid({
   dayPartLabel,
   captures,
   menuItems,
+  // Defaults to empty rather than being required everywhere this grid is
+  // used - the upload page (UploadForm) doesn't currently fetch scores for
+  // the "current photos for this shift" section it renders, since an
+  // agent's just uploaded them and hasn't had a chance to be scored yet.
+  qualityByCaptureId = {},
   readOnly,
   viewerRole,
   onChanged,
@@ -23,6 +29,7 @@ export default function DayPartPhotoGrid({
   dayPartLabel: string;
   captures: Capture[];
   menuItems: MenuItem[];
+  qualityByCaptureId?: Record<string, QualityAssessmentRecord>;
   readOnly: boolean;
   viewerRole: Role;
   onChanged?: () => void;
@@ -57,22 +64,26 @@ export default function DayPartPhotoGrid({
       ) : (
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((sequence) => (
-              <CaptureTile
-                key={sequence}
-                capture={bySequence.get(sequence)}
-                sequence={sequence}
-                dayPartLabel={dayPartLabel}
-                siteId={siteId}
-                date={date}
-                dayPartId={dayPartId}
-                menuItems={menuItems}
-                readOnly={readOnly}
-                viewerRole={viewerRole}
-                onOpen={setOpenSequence}
-                onChanged={onChanged}
-              />
-            ))}
+            {[1, 2, 3].map((sequence) => {
+              const capture = bySequence.get(sequence);
+              return (
+                <CaptureTile
+                  key={sequence}
+                  capture={capture}
+                  sequence={sequence}
+                  dayPartLabel={dayPartLabel}
+                  siteId={siteId}
+                  date={date}
+                  dayPartId={dayPartId}
+                  menuItems={menuItems}
+                  quality={capture ? qualityByCaptureId[capture.id] : undefined}
+                  readOnly={readOnly}
+                  viewerRole={viewerRole}
+                  onOpen={setOpenSequence}
+                  onChanged={onChanged}
+                />
+              );
+            })}
           </div>
           <p className="text-xs text-secondary">
             {captures[0].source === "automated" ? "Automated capture" : "Manually uploaded"}

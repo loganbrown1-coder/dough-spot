@@ -4,6 +4,7 @@ import { listBrandsByOrganisation } from "@/lib/data/brands";
 import { listSites } from "@/lib/data/sites";
 import { listProfiles } from "@/lib/data/profiles";
 import { listMenuItems } from "@/lib/data/menuItems";
+import { listLoginStatsByUser } from "@/lib/data/loginEvents";
 import { listDayPartsByOrganisation } from "@/lib/data/dayParts";
 import { renameBrandAction, renameSiteAction, renameMenuItemAction } from "@/lib/actions/admin";
 import CreateOrganisationForm from "@/app/components/CreateOrganisationForm";
@@ -11,6 +12,8 @@ import OrgSwitcher from "@/app/components/OrgSwitcher";
 import AddBrandForm from "@/app/components/AddBrandForm";
 import AddSiteForm from "@/app/components/AddSiteForm";
 import AddMenuItemForm from "@/app/components/AddMenuItemForm";
+import MenuItemPhotoField from "@/app/components/MenuItemPhotoField";
+import DeleteMenuItemButton from "@/app/components/DeleteMenuItemButton";
 import AddDayPartForm from "@/app/components/AddDayPartForm";
 import DayPartRow from "@/app/components/DayPartRow";
 import InviteUserForm from "@/app/components/InviteUserForm";
@@ -136,6 +139,10 @@ export default async function AdminPage({
   const opspotTeam = allProfiles.filter(
     (p) => p.role === "super_admin" || p.role === "agent"
   );
+  // Converted from Map to a plain object - a Map isn't a type Next.js can
+  // serialize across the server/client boundary (same reason as
+  // qualityByCaptureId in app/dashboard/page.tsx).
+  const loginStatsByUser = Object.fromEntries(await listLoginStatsByUser());
 
   const tabs: AdminTab[] = [];
 
@@ -260,28 +267,27 @@ export default async function AdminPage({
                       <th className="px-5 py-2.5">Photo</th>
                       <th className="px-5 py-2.5">Name</th>
                       <th className="px-5 py-2.5">Brand</th>
+                      <th className="px-5 py-2.5">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {menuItems.map((item) => (
                       <tr key={item.id} className="border-t border-border-subtle">
                         <td className="px-5 py-2.5">
-                          {item.referenceImageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.referenceImageUrl}
-                              alt={item.name}
-                              className="h-10 w-10 rounded-brand object-cover"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-brand bg-app" />
-                          )}
+                          <MenuItemPhotoField
+                            menuItemId={item.id}
+                            imageUrl={item.referenceImageUrl}
+                            name={item.name}
+                          />
                         </td>
                         <td className="px-5 py-2.5 text-body">
                           <RenameField id={item.id} name={item.name} action={renameMenuItemAction} />
                         </td>
                         <td className="px-5 py-2.5 text-secondary">
                           {brandNameById.get(item.brandId) ?? "-"}
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <DeleteMenuItemButton id={item.id} name={item.name} />
                         </td>
                       </tr>
                     ))}
@@ -306,6 +312,7 @@ export default async function AdminPage({
               users={customerUsers}
               brands={brands}
               sites={sites}
+              loginStatsByUser={loginStatsByUser}
               emptyMessage="No users yet for this organisation."
             />
           </>
@@ -376,6 +383,7 @@ export default async function AdminPage({
             users={opspotTeam}
             brands={[]}
             sites={[]}
+            loginStatsByUser={loginStatsByUser}
             emptyMessage="No OpSpot accounts yet."
           />
         </>

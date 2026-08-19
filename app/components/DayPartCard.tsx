@@ -1,4 +1,5 @@
 import DayPartPhotoGrid from "@/app/components/DayPartPhotoGrid";
+import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, DayPart, MenuItem, Role } from "@/types";
 
 export default function DayPartCard({
@@ -7,6 +8,7 @@ export default function DayPartCard({
   dayPart,
   captures,
   menuItems,
+  qualityByCaptureId,
   viewerRole,
 }: {
   siteId: string;
@@ -14,6 +16,7 @@ export default function DayPartCard({
   dayPart: DayPart;
   captures: Capture[];
   menuItems: MenuItem[];
+  qualityByCaptureId: Record<string, QualityAssessmentRecord>;
   viewerRole: Role;
 }) {
   return (
@@ -33,6 +36,7 @@ export default function DayPartCard({
           dayPartLabel={dayPart.label}
           captures={captures}
           menuItems={menuItems}
+          qualityByCaptureId={qualityByCaptureId}
           readOnly
           viewerRole={viewerRole}
         />

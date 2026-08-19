@@ -9,6 +9,8 @@ import {
   removeUserAction,
 } from "@/lib/actions/admin";
 import { ROLE_LABELS } from "@/lib/roleLabels";
+import { formatRelative } from "@/lib/date";
+import type { LoginStats } from "@/lib/data/loginEvents";
 import type { Brand, Profile, Role, Site } from "@/types";
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
@@ -22,10 +24,12 @@ function UserRow({
   user,
   brands,
   sites,
+  loginStats,
 }: {
   user: Profile;
   brands: Brand[];
   sites: Site[];
+  loginStats: LoginStats | undefined;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -78,7 +82,7 @@ function UserRow({
     return (
       <tr className="border-t border-border-subtle">
         <td className="px-5 py-2.5 text-body">{user.email}</td>
-        <td colSpan={3} className="px-5 py-2.5">
+        <td colSpan={4} className="px-5 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={role}
@@ -156,6 +160,15 @@ function UserRow({
       </td>
       <td className="px-5 py-2.5 text-secondary">{ROLE_LABELS[user.role]}</td>
       <td className="px-5 py-2.5 text-secondary">{scopeLabel}</td>
+      <td className="px-5 py-2.5 text-secondary">
+        {loginStats ? (
+          <>
+            {loginStats.count} <span className="text-muted">· last {formatRelative(loginStats.lastLoginAt)}</span>
+          </>
+        ) : (
+          <span className="text-muted">Never</span>
+        )}
+      </td>
       <td className="px-5 py-2.5">
         <div className="flex gap-3">
           <button
@@ -193,12 +206,14 @@ export default function UsersTable({
   users,
   brands,
   sites,
+  loginStatsByUser,
   emptyMessage,
 }: {
   title: string;
   users: Profile[];
   brands: Brand[];
   sites: Site[];
+  loginStatsByUser: Record<string, LoginStats>;
   emptyMessage: string;
 }) {
   return (
@@ -215,12 +230,19 @@ export default function UsersTable({
               <th className="px-5 py-2.5">Email</th>
               <th className="px-5 py-2.5">Role</th>
               <th className="px-5 py-2.5">Scope</th>
+              <th className="px-5 py-2.5">Logins</th>
               <th className="px-5 py-2.5">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
-              <UserRow key={user.id} user={user} brands={brands} sites={sites} />
+              <UserRow
+                key={user.id}
+                user={user}
+                brands={brands}
+                sites={sites}
+                loginStats={loginStatsByUser[user.id]}
+              />
             ))}
           </tbody>
         </table>

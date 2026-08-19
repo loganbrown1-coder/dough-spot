@@ -14,7 +14,16 @@ import {
   deleteSite,
   forceDeleteSiteAndAllData,
 } from "@/lib/data/sites";
-import { createMenuItem, updateMenuItemName, listMenuItemsByBrand } from "@/lib/data/menuItems";
+import {
+  createMenuItem,
+  updateMenuItemName,
+  updateMenuItemImage,
+  deleteMenuItem,
+  getMenuItem,
+  getMenuItemRawImageUrl,
+  listMenuItemsByBrand,
+} from "@/lib/data/menuItems";
+import { objectPathFromStoredUrl } from "@/lib/storagePaths";
 import {
   createDayPart,
   updateDayPart,
@@ -396,6 +405,90 @@ export async function renameMenuItemAction(
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to rename menu item." };
+  }
+}
+
+const MENU_ITEMS_BUCKET = "menu-items";
+
+/**
+ * Replaces a menu item's reference photo. Always writes to a stable,
+ * item-id-based path (unlike createMenuItemAction's random-UUID one, which
+ * only ever needed to be written once) so a second replace naturally
+ * overwrites the first instead of accumulating orphaned files - and clears
+ * whatever's currently stored first regardless of which naming scheme it
+ * used, so an item created before this existed still gets cleaned up
+ * correctly on its first photo change.
+ */
+export async function updateMenuItemPhotoAction(
+  id: string,
+  file: File
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a photo." };
+  const ext = imageExtension(file);
+  if (!ext) return { error: "The photo must be a JPEG, PNG, WebP, or GIF image." };
+
+  const item = await getMenuItem(id);
+  if (!item) return { error: "Unknown menu item." };
+
+  const admin = getSupabaseAdmin();
+  const rawOldUrl = await getMenuItemRawImageUrl(id);
+  if (rawOldUrl) {
+    const oldPath = objectPathFromStoredUrl(MENU_ITEMS_BUCKET, rawOldUrl);
+    if (oldPath) await admin.storage.from(MENU_ITEMS_BUCKET).remove([oldPath]);
+  }
+
+  const objectPath = `${item.brandId}/${id}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error: uploadError } = await admin.storage
+    .from(MENU_ITEMS_BUCKET)
+    .upload(objectPath, buffer, { contentType: file.type, upsert: true });
+  if (uploadError) return { error: `Photo upload failed: ${uploadError.message}` };
+
+  const { data: publicUrl } = admin.storage.from(MENU_ITEMS_BUCKET).getPublicUrl(objectPath);
+
+  try {
+    await updateMenuItemImage(id, publicUrl.publicUrl);
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to save photo." };
+  }
+}
+
+/**
+ * Refuses to delete a menu item still tagged on any photo -
+ * countCapturesUsingMenuItems is the same check deleteBrandAction already
+ * relies on. captures.menu_item_id has no "on delete" clause (defaults to
+ * restrict), so this is a clearer error than the raw constraint violation,
+ * not the only thing preventing it.
+ */
+export async function deleteMenuItemAction(id: string): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const usedCount = await countCapturesUsingMenuItems([id]);
+  if (usedCount > 0) {
+    return {
+      error: `Can't remove — ${usedCount} photo${usedCount === 1 ? "" : "s"} still tagged with this menu item.`,
+    };
+  }
+
+  const item = await getMenuItem(id);
+  if (!item) return { error: "Unknown menu item." };
+
+  const admin = getSupabaseAdmin();
+  const rawUrl = await getMenuItemRawImageUrl(id);
+  if (rawUrl) {
+    const path = objectPathFromStoredUrl(MENU_ITEMS_BUCKET, rawUrl);
+    if (path) await admin.storage.from(MENU_ITEMS_BUCKET).remove([path]);
+  }
+
+  try {
+    await deleteMenuItem(id);
+    revalidatePath("/admin");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove menu item." };
   }
 }
 

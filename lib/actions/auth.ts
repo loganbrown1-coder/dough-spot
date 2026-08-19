@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/supabase-server";
 import { redirectUrl } from "@/lib/site-url";
+import { logLoginEvent } from "@/lib/data/loginEvents";
 
 export interface LoginState {
   error?: string;
@@ -20,9 +21,15 @@ export async function loginAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     return { error: "Invalid email or password." };
+  }
+
+  try {
+    await logLoginEvent(data.user.id, data.user.email ?? email);
+  } catch (err) {
+    console.error("Failed to log login event:", err);
   }
 
   redirect("/dashboard");

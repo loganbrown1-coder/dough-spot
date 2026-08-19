@@ -1,6 +1,7 @@
 import Link from "next/link";
 import DayPartCard from "@/app/components/DayPartCard";
 import { formatDateLabel } from "@/lib/date";
+import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, DayPart, MenuItem, Role, Site } from "@/types";
 
 export interface DateRow {
@@ -13,6 +14,7 @@ export default function SiteSection({
   dayParts,
   dateRows,
   menuItems,
+  qualityByCaptureId,
   linkToFilter,
   linkDate,
   showDateLabels,
@@ -22,6 +24,7 @@ export default function SiteSection({
   dayParts: DayPart[];
   dateRows: DateRow[];
   menuItems: MenuItem[];
+  qualityByCaptureId: Record<string, QualityAssessmentRecord>;
   linkToFilter: boolean;
   linkDate: string;
   showDateLabels: boolean;
@@ -66,6 +69,7 @@ export default function SiteSection({
                     dayPart={dayPart}
                     captures={row.captures.filter((c) => c.dayPartId === dayPart.id)}
                     menuItems={brandMenuItems}
+                    qualityByCaptureId={qualityByCaptureId}
                     viewerRole={viewerRole}
                   />
                 ))}

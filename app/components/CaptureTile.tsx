@@ -11,6 +11,8 @@ import {
   resolveFlagAction,
 } from "@/lib/actions/captures";
 import { compressImage, compressThumbnail } from "@/lib/compressImage";
+import QualityBadge from "@/app/components/QualityBadge";
+import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, MenuItem, Role } from "@/types";
 
 function MenuItemSelect({
@@ -186,6 +188,7 @@ export default function CaptureTile({
   date,
   dayPartId,
   menuItems,
+  quality,
   readOnly,
   viewerRole,
   onOpen,
@@ -198,6 +201,7 @@ export default function CaptureTile({
   date: string;
   dayPartId: string;
   menuItems: MenuItem[];
+  quality?: QualityAssessmentRecord;
   readOnly: boolean;
   viewerRole: Role;
   onOpen: (sequence: number) => void;
@@ -290,6 +294,13 @@ export default function CaptureTile({
   const canFlag = viewerRole === "ops" || viewerRole === "site_manager" || viewerRole === "super_admin";
   const alt = `${dayPartLabel} photo ${sequence}`;
   const menuItemName = menuItems.find((m) => m.id === capture.menuItemId)?.name;
+  // quality.identifiedMenuItemId only ever holds an id (see the comment on
+  // rowToRecord in lib/data/qualityAssessments.ts) - resolved to a name
+  // here rather than re-fetched, since CaptureTile already has the full
+  // menu item list in scope for the (currently tagged) menuItemName above.
+  const identifiedMenuItemName = quality?.identifiedMenuItemId
+    ? menuItems.find((m) => m.id === quality.identifiedMenuItemId)?.name ?? null
+    : quality?.identifiedMenuItemName ?? null; // "unclear" case - not an id, but still worth showing
 
   function notifyChanged() {
     if (onChanged) onChanged();
@@ -401,6 +412,22 @@ export default function CaptureTile({
         <p className="rounded-brand border border-border-default bg-app px-2 py-1 text-[10px] leading-snug text-secondary">
           {capture.comment}
         </p>
+      )}
+
+      {/* Internal only (OpSpot's own accounts) - Fireaway staff (ops,
+          site_manager) don't see automated quality scores yet. This is a
+          UI-level check on top of the real gate: quality_assessments'
+          select policy already excludes those roles at the database level
+          (see supabase/migrations/016_quality_assessments_internal_only.sql),
+          so `quality` will simply be undefined for them regardless - this
+          just avoids relying on that alone. */}
+      {quality && canManage && (
+        <QualityBadge
+          assessment={quality}
+          identifiedMenuItemName={identifiedMenuItemName}
+          currentMenuItemName={menuItemName ?? null}
+          onChanged={notifyChanged}
+        />
       )}
 
       <FlagControl

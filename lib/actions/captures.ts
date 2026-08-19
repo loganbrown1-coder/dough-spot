@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { getCurrentUser, canAccessSite, canManageCaptures } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import {
@@ -19,8 +20,11 @@ import { logCaptureEvent, listCaptureEvents } from "@/lib/data/captureEvents";
 import { getDayPart } from "@/lib/data/dayParts";
 import { getSite } from "@/lib/data/sites";
 import { getBrand } from "@/lib/data/brands";
+import { getMenuItem, getMenuItemReferences } from "@/lib/data/menuItems";
 import { objectPathFromStoredUrl, thumbnailPathFor } from "@/lib/storagePaths";
 import { imageExtension } from "@/lib/imageUpload";
+import { assessCapture, QUALITY_MODEL } from "@/lib/quality/assessCapture";
+import { saveQualityAssessment } from "@/lib/data/qualityAssessments";
 import type { Capture, CaptureEvent } from "@/types";
 
 export interface UploadState {
@@ -70,6 +74,48 @@ async function logEvent(params: Parameters<typeof logCaptureEvent>[0]): Promise<
   } catch (err) {
     console.error("Failed to log capture event:", err);
   }
+}
+
+/**
+ * Kicks off automated quality scoring (see lib/quality) for one newly
+ * saved capture, without making the uploader wait on it - a vision model
+ * call is a second or two, easily the slowest part of the request
+ * otherwise. Wrapped in Next's after() rather than a bare unawaited
+ * promise: on a serverless deployment (Vercel), the function instance can
+ * be frozen the moment the response is sent, which would silently kill a
+ * plain fire-and-forget async call before it finishes. after() explicitly
+ * keeps the instance alive until this resolves.
+ *
+ * A no-op until ANTHROPIC_API_KEY is set (see .env.local.example) - lets
+ * this ship without scoring suddenly turning on (and failing) for everyone
+ * before the key exists.
+ */
+function scoreCaptureInBackground(capture: Capture, imageBuffer: Buffer, mimeType: string): void {
+  if (!process.env.ANTHROPIC_API_KEY) return;
+  after(async () => {
+    try {
+      const menuItem = capture.menuItemId ? await getMenuItem(capture.menuItemId) : null;
+
+      // Switches assessCapture into "identify and grade" mode once the
+      // site's brand has reference photos for its menu items - a no-op
+      // (empty array) until Fireaway populate any, at which point this
+      // starts happening automatically, no separate rollout step needed.
+      const site = await getSite(capture.siteId);
+      const referenceItems = site ? await getMenuItemReferences(site.brandId) : [];
+
+      const assessment = await assessCapture({
+        imageBuffer,
+        mimeType,
+        menuItemName: menuItem?.name ?? null,
+        referenceItems,
+      });
+      await saveQualityAssessment(capture.id, QUALITY_MODEL, assessment);
+    } catch (err) {
+      // Best-effort, same as logEvent - a failed or misconfigured model
+      // call must never affect the upload it's scoring.
+      console.error("Quality assessment failed:", err);
+    }
+  });
 }
 
 /**
@@ -157,6 +203,10 @@ export async function uploadCapturesAction(
   }
 
   const images: NewCaptureImage[] = [];
+  // Kept in step with `images` (same index) so each saved capture's
+  // sequence can be matched back to the bytes already read for it below -
+  // scoring reuses these rather than re-fetching the file from Storage.
+  const buffers: Buffer[] = [];
   for (let i = 0; i < files.length; i++) {
     const sequence = i + 1;
     const file = files[i];
@@ -164,6 +214,7 @@ export async function uploadCapturesAction(
     const ext = imageExtension(file)!;
     const objectPath = `${folder}/${sequence}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    buffers.push(buffer);
 
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
@@ -199,6 +250,7 @@ export async function uploadCapturesAction(
       actorEmail: user.email,
       action: "upload",
     });
+    scoreCaptureInBackground(capture, buffers[capture.sequence - 1], files[capture.sequence - 1].type);
   }
 
   return { success: true };
@@ -312,6 +364,11 @@ export async function replaceCaptureImageAction(
       actorEmail: user.email,
       action: "replace",
     });
+    // Re-fetched rather than reusing what the caller passed in, since
+    // scoring needs the row's current menuItemId - a replace doesn't change
+    // it, but nothing upstream of this action carries it through.
+    const updated = await getCapture(captureId);
+    if (updated) scoreCaptureInBackground(updated, buffer, file.type);
     return { imageUrl };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to save photo." };
@@ -376,6 +433,7 @@ export async function addCaptureAction(
       actorEmail: user.email,
       action: "upload",
     });
+    scoreCaptureInBackground(saved, buffer, file.type);
     return {};
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to save photo." };

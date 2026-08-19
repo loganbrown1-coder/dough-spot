@@ -17,3 +17,19 @@ const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 export function imageExtension(file: File): string | null {
   return ALLOWED_IMAGE_TYPES[file.type] ?? null;
 }
+
+const EXTENSION_TO_MIME_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(ALLOWED_IMAGE_TYPES).map(([mime, ext]) => [ext, mime])
+);
+
+/**
+ * The inverse of imageExtension - used where a stored object path (e.g.
+ * "brandId/menu-item.jpg") is all that's on hand and the original upload's
+ * File/mimeType isn't, such as re-downloading a menu item's reference photo
+ * for a quality-scoring call (see lib/data/menuItems.ts). Falls back to
+ * image/jpeg for an unrecognised extension, matching assessCapture's own
+ * fallback for the same situation.
+ */
+export function mimeTypeFromExtension(ext: string): string {
+  return EXTENSION_TO_MIME_TYPE[ext.toLowerCase()] ?? "image/jpeg";
+}

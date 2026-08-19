@@ -8,7 +8,8 @@ import {
   listCapturesAllDates,
   getMostRecentCaptureDate,
 } from "@/lib/data/captures";
-import { todayStr } from "@/lib/date";
+import { listLatestQualityAssessments } from "@/lib/data/qualityAssessments";
+import { todayStr, formatDateLabel } from "@/lib/date";
 import { groupSitesByBrand } from "@/lib/siteGroups";
 import DashboardFilters from "@/app/components/DashboardFilters";
 import SiteSection, { type DateRow } from "@/app/components/SiteSection";
@@ -24,6 +25,11 @@ function groupByDate(captures: Capture[]): DateRow[] {
   return [...byDate.entries()]
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
     .map(([date, dateCaptures]) => ({ date, captures: dateCaptures }));
+}
+
+/** Every date with at least one capture, newest first - the "All dates" overview's outer grouping. */
+function distinctDates(captures: Capture[]): string[] {
+  return [...new Set(captures.map((c) => c.date))].sort((a, b) => (a < b ? 1 : -1));
 }
 
 export default async function DashboardPage({
@@ -89,6 +95,13 @@ export default async function DashboardPage({
     ? await listCapturesAllDates({ siteId: selectedSiteId || undefined })
     : await listCapturesByDate(selectedDate);
   const captures = flaggedOnly ? allCaptures.filter((c) => c.flagged) : allCaptures;
+
+  // Converted from Map to a plain object here - a Map isn't a type Next.js
+  // can serialize across the server/client boundary, and this needs to
+  // reach DayPartPhotoGrid/CaptureTile, both client components.
+  const qualityByCaptureId = Object.fromEntries(
+    await listLatestQualityAssessments(captures.map((c) => c.id))
+  );
 
   const capturesBySite = new Map<string, Capture[]>();
   for (const capture of captures) {
@@ -160,11 +173,66 @@ export default async function DashboardPage({
               dayParts={visibleDayParts}
               dateRows={dateRowsForSite(selectedSiteId)}
               menuItems={menuItems}
+              qualityByCaptureId={qualityByCaptureId}
               linkToFilter={false}
               linkDate={linkDate}
               showDateLabels={allDates}
               viewerRole={user.role}
             />
+          ) : allDates ? (
+            // Date-major: one heading per date (newest first), every site's
+            // photos for that day underneath, then the next date below -
+            // instead of one heading per site with every date stacked under
+            // it, which meant scrolling through one site's whole history
+            // before reaching the next site at all.
+            <div className="flex flex-col gap-10">
+              {distinctDates(captures).map((date) => (
+                <div key={date} className="flex flex-col gap-5">
+                  <h2 className="text-xl font-extrabold text-navy">{formatDateLabel(date)}</h2>
+                  <div className="flex flex-col gap-8">
+                    {groupSitesByBrand(visibleSites, brands).map((group) => {
+                      const brand = brands.find((b) => b.id === group.sites[0]?.brandId);
+                      return (
+                        <div key={group.brandName} className="flex flex-col gap-5">
+                          <div className="flex items-center gap-2.5">
+                            {brand?.logoUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={brand.logoUrl}
+                                alt=""
+                                className="h-8 w-8 rounded object-contain"
+                              />
+                            )}
+                            <h3 className="text-lg font-extrabold text-navy">{group.brandName}</h3>
+                          </div>
+                          {group.sites.map((site) => (
+                            <SiteSection
+                              key={site.id}
+                              site={site}
+                              dayParts={dayPartsForSite(site)}
+                              dateRows={[
+                                {
+                                  date,
+                                  captures: (capturesBySite.get(site.id) ?? []).filter(
+                                    (c) => c.date === date
+                                  ),
+                                },
+                              ]}
+                              menuItems={menuItems}
+                              qualityByCaptureId={qualityByCaptureId}
+                              linkToFilter
+                              linkDate={date}
+                              showDateLabels={false}
+                              viewerRole={user.role}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col gap-8">
               {groupSitesByBrand(visibleSites, brands).map((group) => {
@@ -189,9 +257,10 @@ export default async function DashboardPage({
                       dayParts={dayPartsForSite(site)}
                       dateRows={dateRowsForSite(site.id)}
                       menuItems={menuItems}
+                      qualityByCaptureId={qualityByCaptureId}
                       linkToFilter
                       linkDate={linkDate}
-                      showDateLabels={allDates}
+                      showDateLabels={false}
                       viewerRole={user.role}
                     />
                   ))}

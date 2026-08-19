@@ -133,12 +133,22 @@ create table if not exists capture_events (
   created_at timestamptz not null default now()
 );
 
+-- One row per successful sign-in, so Admin > Users can show how often each
+-- person actually logs in. Append-only, same shape as capture_events.
+create table if not exists login_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete set null,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_brands_org on brands(organisation_id);
 create index if not exists idx_menu_items_brand on menu_items(brand_id);
 create index if not exists idx_sites_brand on sites(brand_id);
 create index if not exists idx_day_parts_org on day_parts(organisation_id);
 create index if not exists idx_captures_lookup on captures(site_id, date, day_part_id);
 create index if not exists idx_capture_events_lookup on capture_events(site_id, date, created_at desc);
+create index if not exists idx_login_events_user on login_events(user_id, created_at desc);
 create index if not exists idx_profiles_org on profiles(organisation_id);
 create index if not exists idx_profiles_brand on profiles(brand_id);
 create index if not exists idx_profiles_site on profiles(site_id);
@@ -224,6 +234,7 @@ alter table sites enable row level security;
 alter table day_parts enable row level security;
 alter table captures enable row level security;
 alter table capture_events enable row level security;
+alter table login_events enable row level security;
 alter table profiles enable row level security;
 
 -- organisations: super_admin sees all; everyone else sees only their own.
@@ -262,6 +273,9 @@ create policy "menu_items_insert" on menu_items for insert with check (
   (select role from current_profile()) = 'super_admin'
 );
 create policy "menu_items_update" on menu_items for update using (
+  (select role from current_profile()) = 'super_admin'
+);
+create policy "menu_items_delete" on menu_items for delete using (
   (select role from current_profile()) = 'super_admin'
 );
 
@@ -391,6 +405,17 @@ create policy "capture_events_insert" on capture_events for insert with check (
 -- forceDeleteSiteAction permanently wiping a site's data.
 create policy "capture_events_delete" on capture_events for delete using (
   (select role from current_profile()) = 'super_admin'
+);
+
+-- login_events: super_admin only can read (it's a per-user login-frequency
+-- report, not something a customer needs); anyone can insert, but only a
+-- row attributed to themselves - actor_id/actor_email must match the
+-- caller, same self-attribution rule as capture_events_insert.
+create policy "login_events_select" on login_events for select using (
+  (select role from current_profile()) = 'super_admin'
+);
+create policy "login_events_insert" on login_events for insert with check (
+  user_id = auth.uid() and email = (auth.jwt() ->> 'email')
 );
 
 -- profiles: a user can always read their own row; super_admin can read
