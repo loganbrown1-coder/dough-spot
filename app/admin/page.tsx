@@ -392,7 +392,7 @@ export default async function AdminPage({
   );
 
   return (
-    <div className="w-full max-w-4xl px-8 py-8">
+    <div className="mx-auto w-full max-w-4xl px-8 py-8">
       <h1 className="mb-6 text-2xl font-extrabold text-navy">Admin</h1>
       <AdminTabs tabs={tabs} />
     </div>

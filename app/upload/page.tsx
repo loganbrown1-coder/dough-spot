@@ -27,7 +27,7 @@ export default async function UploadPage({
   const defaultDate = params.date || todayStr();
 
   return (
-    <div className="w-full max-w-3xl px-8 py-8">
+    <div className="mx-auto w-full max-w-3xl px-8 py-8">
       <div className="mb-6 flex flex-col gap-1.5">
         <h1 className="text-2xl font-extrabold text-navy">Upload photos</h1>
         <p className="text-sm leading-relaxed text-secondary">

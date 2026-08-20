@@ -44,7 +44,7 @@ export default async function FlagsPage() {
   });
 
   return (
-    <div className="w-full max-w-4xl px-8 py-8">
+    <div className="mx-auto w-full max-w-4xl px-8 py-8">
       <div className="mb-6 flex flex-col gap-1.5">
         <h1 className="text-2xl font-extrabold text-navy">Flagged photos</h1>
         <p className="text-sm leading-relaxed text-secondary">

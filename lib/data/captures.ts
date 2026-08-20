@@ -177,21 +177,6 @@ export async function listFlaggedCaptures(): Promise<Capture[]> {
   return withSignedUrls((data ?? []).map(rowToCapture));
 }
 
-/**
- * Same scope as listFlaggedCaptures, but a count only - for the sidebar nav
- * badge, which has no use for the actual rows (and no reason to pay for
- * signing every photo's URL just to show a number).
- */
-export async function countFlaggedCaptures(): Promise<number> {
-  const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("captures")
-    .select("*", { count: "exact", head: true })
-    .eq("flagged", true);
-  if (error) throw error;
-  return count ?? 0;
-}
-
 export interface NewCaptureImage {
   sequence: number;
   imageUrl: string;
