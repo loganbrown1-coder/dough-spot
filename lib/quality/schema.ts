@@ -109,5 +109,10 @@ export interface QualityAssessmentRecord extends QualityAssessment {
   // reviewed, then true/false.
   identificationReviewed: boolean;
   identificationCorrect: boolean | null;
+  // The actual token usage of the scoring call that produced this row -
+  // summed by getQualityScoringSpendThisMonth to enforce a monthly spend
+  // cap (see lib/data/qualityAssessments.ts).
+  inputTokens: number;
+  outputTokens: number;
   createdAt: string;
 }

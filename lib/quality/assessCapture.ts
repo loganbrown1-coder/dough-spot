@@ -13,9 +13,20 @@ import {
  * reviewable change (and shows up distinctly in quality_assessments.model
  * for anyone comparing scoring history across versions later), not
  * something that silently shifts every score the next time Anthropic ships
- * a new default.
+ * a new default. Deliberately Haiku, not Sonnet/Opus - this runs on every
+ * uploaded photo, so cost per call matters a lot more here than in a
+ * one-off chat request.
  */
-const MODEL = "claude-sonnet-5";
+const MODEL = "claude-haiku-4-5";
+
+/**
+ * Haiku 4.5's per-token rate, in dollars - used by
+ * getQualityScoringSpendThisMonth (lib/data/qualityAssessments.ts) to turn
+ * stored token counts back into a dollar figure for the monthly spend cap.
+ * Tied to MODEL above - update this alongside any future model change.
+ */
+export const MODEL_PRICE_PER_INPUT_TOKEN = 1 / 1_000_000;
+export const MODEL_PRICE_PER_OUTPUT_TOKEN = 5 / 1_000_000;
 
 const VALID_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
@@ -79,6 +90,15 @@ export interface AssessCaptureParams {
   referenceItems?: ReferenceItem[];
 }
 
+export interface AssessCaptureResult {
+  assessment: QualityAssessment;
+  /** Actual token usage of this call, from the API response itself - not
+      an estimate. Used by getQualityScoringSpendThisMonth to enforce a
+      monthly spend cap (see lib/data/qualityAssessments.ts). */
+  inputTokens: number;
+  outputTokens: number;
+}
+
 /**
  * Scores a single capture against the Taste or Waste rubric using Claude's
  * vision capability, optionally identifying which menu item it is first
@@ -87,7 +107,7 @@ export interface AssessCaptureParams {
  * as best-effort background work, same as logCaptureEvent, and swallow the
  * error rather than let it block the upload it's describing.
  */
-export async function assessCapture(params: AssessCaptureParams): Promise<QualityAssessment> {
+export async function assessCapture(params: AssessCaptureParams): Promise<AssessCaptureResult> {
   const anthropic = getClient();
   const referenceItems = params.referenceItems ?? [];
 
@@ -121,7 +141,11 @@ export async function assessCapture(params: AssessCaptureParams): Promise<Qualit
     throw new Error("Model returned no text content.");
   }
 
-  return parseAssessment(textBlock.text, referenceItems);
+  return {
+    assessment: parseAssessment(textBlock.text, referenceItems),
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+  };
 }
 
 export const QUALITY_MODEL = MODEL;

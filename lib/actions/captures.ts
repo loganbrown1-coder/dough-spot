@@ -24,7 +24,11 @@ import { getMenuItem, getMenuItemReferences } from "@/lib/data/menuItems";
 import { objectPathFromStoredUrl, thumbnailPathFor } from "@/lib/storagePaths";
 import { imageExtension } from "@/lib/imageUpload";
 import { assessCapture, QUALITY_MODEL } from "@/lib/quality/assessCapture";
-import { saveQualityAssessment } from "@/lib/data/qualityAssessments";
+import {
+  saveQualityAssessment,
+  getQualityScoringSpendThisMonth,
+  QUALITY_SCORING_MONTHLY_CAP_USD,
+} from "@/lib/data/qualityAssessments";
 import type { Capture, CaptureEvent } from "@/types";
 
 export interface UploadState {
@@ -94,6 +98,19 @@ function scoreCaptureInBackground(capture: Capture, imageBuffer: Buffer, mimeTyp
   if (!process.env.ANTHROPIC_API_KEY) return;
   after(async () => {
     try {
+      // Checked fresh before every call, not cached - deliberately a live
+      // read rather than an in-memory counter, since this runs in
+      // per-request server functions with no shared process state, and
+      // the DB is the only place multiple concurrent uploads could
+      // otherwise race past the cap together.
+      const spendSoFar = await getQualityScoringSpendThisMonth();
+      if (spendSoFar >= QUALITY_SCORING_MONTHLY_CAP_USD) {
+        console.warn(
+          `Quality scoring skipped for capture ${capture.id}: monthly cap of $${QUALITY_SCORING_MONTHLY_CAP_USD} reached ($${spendSoFar.toFixed(2)} spent).`
+        );
+        return;
+      }
+
       const menuItem = capture.menuItemId ? await getMenuItem(capture.menuItemId) : null;
 
       // Switches assessCapture into "identify and grade" mode once the
@@ -103,13 +120,13 @@ function scoreCaptureInBackground(capture: Capture, imageBuffer: Buffer, mimeTyp
       const site = await getSite(capture.siteId);
       const referenceItems = site ? await getMenuItemReferences(site.brandId) : [];
 
-      const assessment = await assessCapture({
+      const { assessment, inputTokens, outputTokens } = await assessCapture({
         imageBuffer,
         mimeType,
         menuItemName: menuItem?.name ?? null,
         referenceItems,
       });
-      await saveQualityAssessment(capture.id, QUALITY_MODEL, assessment);
+      await saveQualityAssessment(capture.id, QUALITY_MODEL, assessment, { inputTokens, outputTokens });
     } catch (err) {
       // Best-effort, same as logEvent - a failed or misconfigured model
       // call must never affect the upload it's scoring.

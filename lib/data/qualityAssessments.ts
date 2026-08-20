@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import {
+  MODEL_PRICE_PER_INPUT_TOKEN,
+  MODEL_PRICE_PER_OUTPUT_TOKEN,
+} from "@/lib/quality/assessCapture";
 import type { AxisScore, QualityAssessment, QualityAssessmentRecord } from "@/lib/quality/schema";
 
 /**
@@ -39,6 +43,8 @@ function rowToRecord(row: {
   identification_confidence: string | null;
   identification_reviewed: boolean;
   identification_correct: boolean | null;
+  input_tokens: number;
+  output_tokens: number;
   created_at: string;
 }): QualityAssessmentRecord {
   return {
@@ -65,6 +71,8 @@ function rowToRecord(row: {
     identificationConfidence: row.identification_confidence as QualityAssessmentRecord["identificationConfidence"],
     identificationReviewed: row.identification_reviewed,
     identificationCorrect: row.identification_correct,
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
     createdAt: row.created_at,
   };
 }
@@ -79,12 +87,15 @@ function rowToRecord(row: {
 export async function saveQualityAssessment(
   captureId: string,
   model: string,
-  assessment: QualityAssessment
+  assessment: QualityAssessment,
+  usage: { inputTokens: number; outputTokens: number }
 ): Promise<void> {
   const admin = getSupabaseAdmin();
   const { error } = await admin.from("quality_assessments").insert({
     capture_id: captureId,
     model,
+    input_tokens: usage.inputTokens,
+    output_tokens: usage.outputTokens,
     spec_score: assessment.spec.score,
     spec_defects: assessment.spec.defects,
     spec_notes: assessment.spec.notes,
@@ -106,6 +117,42 @@ export async function saveQualityAssessment(
     identification_confidence: assessment.identificationConfidence,
   });
   if (error) throw error;
+}
+
+/** The monthly cap on quality-scoring spend - see getQualityScoringSpendThisMonth. */
+export const QUALITY_SCORING_MONTHLY_CAP_USD = 20;
+
+/**
+ * Total dollar cost of every scoring call made so far this calendar month,
+ * computed from the actual token counts stored on each row (not an
+ * estimate). Checked before every new scoring call (see
+ * scoreCaptureInBackground in lib/actions/captures.ts) so the feature can
+ * never exceed QUALITY_SCORING_MONTHLY_CAP_USD regardless of what else the
+ * Anthropic account is used for - workspace-level spend limits aren't
+ * available on a prepaid-credit account, so this is enforced in the app
+ * instead. Uses the service-role client, same as saveQualityAssessment -
+ * this is an operational check, not a user-facing read scoped to any one
+ * viewer's RLS permissions.
+ */
+export async function getQualityScoringSpendThisMonth(): Promise<number> {
+  const startOfMonth = new Date();
+  startOfMonth.setUTCDate(1);
+  startOfMonth.setUTCHours(0, 0, 0, 0);
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("quality_assessments")
+    .select("input_tokens, output_tokens")
+    .gte("created_at", startOfMonth.toISOString());
+  if (error) throw error;
+
+  return (data ?? []).reduce(
+    (total, row) =>
+      total +
+      row.input_tokens * MODEL_PRICE_PER_INPUT_TOKEN +
+      row.output_tokens * MODEL_PRICE_PER_OUTPUT_TOKEN,
+    0
+  );
 }
 
 /**

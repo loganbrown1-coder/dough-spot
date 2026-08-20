@@ -6,6 +6,10 @@ import { listProfiles } from "@/lib/data/profiles";
 import { listMenuItems } from "@/lib/data/menuItems";
 import { listLoginStatsByUser } from "@/lib/data/loginEvents";
 import { listDayPartsByOrganisation } from "@/lib/data/dayParts";
+import {
+  getQualityScoringSpendThisMonth,
+  QUALITY_SCORING_MONTHLY_CAP_USD,
+} from "@/lib/data/qualityAssessments";
 import { renameBrandAction, renameSiteAction, renameMenuItemAction } from "@/lib/actions/admin";
 import CreateOrganisationForm from "@/app/components/CreateOrganisationForm";
 import OrgSwitcher from "@/app/components/OrgSwitcher";
@@ -143,6 +147,7 @@ export default async function AdminPage({
   // serialize across the server/client boundary (same reason as
   // qualityByCaptureId in app/dashboard/page.tsx).
   const loginStatsByUser = Object.fromEntries(await listLoginStatsByUser());
+  const qualityScoringSpend = await getQualityScoringSpendThisMonth();
 
   const tabs: AdminTab[] = [];
 
@@ -375,6 +380,30 @@ export default async function AdminPage({
       label: "OpSpot Team",
       content: (
         <>
+          <SectionCard title="AI quality scoring spend">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-extrabold text-navy">
+                  ${qualityScoringSpend.toFixed(2)}
+                  <span className="text-sm font-semibold text-muted"> / ${QUALITY_SCORING_MONTHLY_CAP_USD.toFixed(2)}</span>
+                </p>
+                <p className="text-[12px] text-secondary">Spent scoring photos this calendar month</p>
+              </div>
+              {qualityScoringSpend >= QUALITY_SCORING_MONTHLY_CAP_USD && (
+                <span className="rounded-brand border border-error-border bg-error-bg px-2.5 py-1 text-[11px] font-bold text-error">
+                  Cap reached - new photos aren&apos;t being scored
+                </span>
+              )}
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-app">
+              <div
+                className={`h-full rounded-full ${qualityScoringSpend >= QUALITY_SCORING_MONTHLY_CAP_USD ? "bg-error" : "bg-brand"}`}
+                style={{
+                  width: `${Math.min(100, (qualityScoringSpend / QUALITY_SCORING_MONTHLY_CAP_USD) * 100)}%`,
+                }}
+              />
+            </div>
+          </SectionCard>
           <SectionCard title="Invite an OpSpot team member">
             <InviteOpspotUserForm />
           </SectionCard>

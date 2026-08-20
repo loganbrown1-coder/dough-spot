@@ -115,6 +115,63 @@ create table if not exists captures (
   unique (site_id, date, day_part_id, sequence)
 );
 
+-- Automated pizza quality scoring (Claude vision) against Fireaway's "Taste
+-- or Waste" grading guide. One row per capture per scoring run, kept as
+-- history rather than overwritten in place, so re-scoring later (e.g. after
+-- a prompt change) doesn't lose earlier calls. See
+-- docs/pizza-quality-scoring.md for the full rubric and prompt this backs.
+-- input_tokens/output_tokens record the actual token usage of the call
+-- that produced this row - summed by getQualityScoringSpendThisMonth to
+-- enforce a monthly spend cap in the app itself (see
+-- lib/data/qualityAssessments.ts), since workspace spend limits aren't
+-- available on a prepaid-credit Anthropic account.
+--
+-- Written via the service-role client only, from a background job kicked
+-- off in lib/actions/captures.ts right after a photo is saved - not a
+-- user-initiated write - so there's deliberately no insert policy for the
+-- RLS-scoped client, same pattern as Storage writes elsewhere in this app.
+create table if not exists quality_assessments (
+  id uuid primary key default gen_random_uuid(),
+  capture_id uuid not null references captures(id) on delete cascade,
+  model text not null,
+  spec_score smallint not null check (spec_score between 1 and 5),
+  spec_defects text[] not null default '{}',
+  spec_notes text not null default '',
+  neat_score smallint not null check (neat_score between 1 and 5),
+  neat_defects text[] not null default '{}',
+  neat_notes text not null default '',
+  heat_score smallint not null check (heat_score between 1 and 5),
+  heat_defects text[] not null default '{}',
+  heat_notes text not null default '',
+  stretch_score smallint not null check (stretch_score between 1 and 5),
+  stretch_defects text[] not null default '{}',
+  stretch_notes text not null default '',
+  overall_score smallint not null check (overall_score between 1 and 5),
+  verdict text not null check (verdict in ('pass', 'fail', 'borderline')),
+  confidence text not null check (confidence in ('high', 'medium', 'low')),
+  summary text not null,
+  -- Set once an agent/admin confirms or corrects the model's call - this is
+  -- the training signal for tightening the prompt (or eventually
+  -- fine-tuning) later. Everything else on the row only ever comes from the
+  -- model itself.
+  human_reviewed boolean not null default false,
+  human_verdict text check (human_verdict in ('pass', 'fail', 'borderline')),
+  -- Once a brand has reference photos for its menu items, assessCapture
+  -- identifies which item the photo matches before grading it - null until
+  -- then (see lib/quality/prompt.ts's buildIdentifyAndGradePrompt).
+  identified_menu_item_id uuid references menu_items(id) on delete set null,
+  identified_menu_item_name text,
+  identification_confidence text check (identification_confidence in ('high', 'medium', 'low')),
+  identification_reviewed boolean not null default false,
+  identification_correct boolean,
+  input_tokens integer not null default 0,
+  output_tokens integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists quality_assessments_capture_id_idx
+  on quality_assessments(capture_id);
+
 -- Append-only audit log: every upload, replace, delete, clear-all, flag,
 -- resolve, and scheduled purge writes a row here, so an admin can open a
 -- site + date and see who did what, when.
@@ -234,6 +291,7 @@ alter table menu_items enable row level security;
 alter table sites enable row level security;
 alter table day_parts enable row level security;
 alter table captures enable row level security;
+alter table quality_assessments enable row level security;
 alter table capture_events enable row level security;
 alter table login_events enable row level security;
 alter table profiles enable row level security;
@@ -330,6 +388,25 @@ create policy "captures_delete" on captures for delete using (
   site_id in (select accessible_site_ids())
   and (select role from current_profile()) in ('agent', 'super_admin')
 );
+
+-- Internal only (OpSpot's own accounts) - Fireaway staff (ops,
+-- site_manager) don't see automated quality scores yet, so this is
+-- tighter than captures_select (which those roles otherwise pass).
+create policy "quality_assessments_select" on quality_assessments for select using (
+  capture_id in (select id from captures where site_id in (select accessible_site_ids()))
+  and (select role from current_profile()) in ('agent', 'super_admin')
+);
+create policy "quality_assessments_update" on quality_assessments for update using (
+  capture_id in (select id from captures where site_id in (select accessible_site_ids()))
+  and (select role from current_profile()) in ('agent', 'super_admin')
+) with check (
+  capture_id in (select id from captures where site_id in (select accessible_site_ids()))
+  and (select role from current_profile()) in ('agent', 'super_admin')
+);
+-- No insert/delete policy for the RLS-scoped client - rows are written only
+-- by the service-role client (the scoring job) and removed only via
+-- captures' own on-delete-cascade above.
+
 create policy "captures_update" on captures for update using (
   site_id in (select accessible_site_ids())
 );
