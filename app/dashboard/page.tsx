@@ -158,7 +158,7 @@ export default async function DashboardPage({
   const coverage = showCoverageBoard ? await getCoverageForDate(selectedDate) : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-8 py-8">
+    <div className="w-full max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-navy">Home Page</h1>
         {canManageCaptures(user.role) && (
