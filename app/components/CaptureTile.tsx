@@ -330,6 +330,7 @@ export default function CaptureTile({
               siteName={siteName}
               menuItems={menuItems}
               viewerRole={viewerRole}
+              readOnly={readOnly}
               onClose={() => setShowRankings(false)}
             />
           )}

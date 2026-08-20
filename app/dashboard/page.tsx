@@ -94,10 +94,26 @@ export default async function DashboardPage({
     : siteDayParts;
   const flaggedOnly = params.flagged === "1";
 
-  const allCaptures = allDates
-    ? await listCapturesAllDates({ siteId: selectedSiteId || undefined })
-    : await listCapturesByDate(selectedDate);
-  const captures = flaggedOnly ? allCaptures.filter((c) => c.flagged) : allCaptures;
+  // The coverage board (stats bar + per-site status cards) only makes sense
+  // for "every site, one specific day" - the plain landing state. Once a
+  // site is selected, "flagged only" is on, or "all dates" is on, the
+  // filtered photo grid below applies instead. Computed before the
+  // captures/quality fetch below so the common landing case (this board)
+  // can skip both queries entirely - it gets everything it needs from
+  // getCoverageForDate, and neither query's result is read anywhere in
+  // that render branch.
+  const showCoverageBoard = !selectedSiteId && !allDates && !flaggedOnly;
+
+  const captures = showCoverageBoard
+    ? []
+    : flaggedOnly
+      ? (allDates
+          ? await listCapturesAllDates({ siteId: selectedSiteId || undefined })
+          : await listCapturesByDate(selectedDate)
+        ).filter((c) => c.flagged)
+      : await (allDates
+          ? listCapturesAllDates({ siteId: selectedSiteId || undefined })
+          : listCapturesByDate(selectedDate));
 
   // Converted from Map to a plain object here - a Map isn't a type Next.js
   // can serialize across the server/client boundary, and this needs to
@@ -133,17 +149,12 @@ export default async function DashboardPage({
     ? `/upload?site=${selectedSiteId}&date=${allDates ? todayStr() : selectedDate}`
     : "/upload";
 
-  // The coverage board (stats bar + per-site status cards) only makes sense
-  // for "every site, one specific day" - the plain landing state. Once a
-  // site is selected, "flagged only" is on, or "all dates" is on, the
-  // existing filtered photo grid below still applies instead (unchanged).
   // This does mean the same coverage query Nav's sidebar already ran for
   // this same date runs a second time here - the two render in separate
   // Server Component subtrees with no shared cache between them, so this is
   // a real, known duplicate query rather than something wired together.
   // Harmless at current data volume; worth revisiting with React's cache()
   // if it ever isn't.
-  const showCoverageBoard = !selectedSiteId && !allDates && !flaggedOnly;
   const coverage = showCoverageBoard ? await getCoverageForDate(selectedDate) : null;
 
   return (

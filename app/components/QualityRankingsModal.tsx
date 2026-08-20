@@ -39,6 +39,12 @@ export default function QualityRankingsModal({
   siteName,
   menuItems,
   viewerRole,
+  // Mirrors CaptureTile's own readOnly - the tile's Flag control is only
+  // ever enabled in the dashboard's readOnly grid, not on the upload page
+  // where someone's actively adding/replacing photos. This modal is opened
+  // from both places, so it needs the same gate rather than only checking
+  // role.
+  readOnly,
   onClose,
 }: {
   /** Every capture navigable from this modal, in display order - crosses
@@ -51,13 +57,16 @@ export default function QualityRankingsModal({
   siteName: string;
   menuItems: MenuItem[];
   viewerRole: Role;
+  readOnly: boolean;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(() =>
     Math.max(0, siblings.findIndex((s) => s.capture.id === initialCaptureId))
   );
 
-  const canFlag = viewerRole === "ops" || viewerRole === "site_manager" || viewerRole === "super_admin";
+  const canManage = viewerRole === "agent" || viewerRole === "super_admin";
+  const canFlag =
+    readOnly && (viewerRole === "ops" || viewerRole === "site_manager" || viewerRole === "super_admin");
 
   function step(delta: number) {
     if (siblings.length === 0) return;
@@ -67,6 +76,11 @@ export default function QualityRankingsModal({
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
+      // Typing in the flag-comment textarea also fires document keydown -
+      // arrow keys there should move the text cursor, not the photo.
+      const target = e.target;
+      const isTextInput = target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement;
+      if (isTextInput) return;
       if (e.key === "ArrowLeft") step(-1);
       if (e.key === "ArrowRight") step(1);
     }
@@ -75,8 +89,16 @@ export default function QualityRankingsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, siblings.length]);
 
-  const current = siblings[index];
-  if (!current) return null;
+  // siblings can shrink out from under an open modal (e.g. a photo deleted
+  // elsewhere on the page triggers a refresh) - close rather than leaving
+  // a blank, un-clickable overlay if index no longer has anything to point
+  // to.
+  useEffect(() => {
+    if (siblings.length === 0) onClose();
+  }, [siblings.length, onClose]);
+  if (siblings.length === 0) return null;
+
+  const current = siblings[Math.min(index, siblings.length - 1)];
   const { capture, dayPartLabel } = current;
   const assessment = qualityByCaptureId[capture.id] ?? null;
   const menuItemName = menuItems.find((m) => m.id === capture.menuItemId)?.name ?? "Unmatched photo";
@@ -91,6 +113,9 @@ export default function QualityRankingsModal({
         return `Scored automatically ${formatTime(assessment.createdAt)}, ${gapSeconds}s after upload`;
       })()
     : null;
+  const allDefects = assessment
+    ? [...assessment.spec.defects, ...assessment.neat.defects, ...assessment.heat.defects, ...assessment.stretch.defects]
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90 sm:flex-row" onClick={onClose}>
@@ -229,19 +254,16 @@ export default function QualityRankingsModal({
               </div>
             )}
 
-            {[...assessment.spec.defects, ...assessment.neat.defects, ...assessment.heat.defects, ...assessment.stretch.defects]
-              .length > 0 && (
+            {allDefects.length > 0 && (
               <div className="flex flex-wrap gap-1">
-                {[...assessment.spec.defects, ...assessment.neat.defects, ...assessment.heat.defects, ...assessment.stretch.defects].map(
-                  (defect, i) => (
-                    <span
-                      key={`${defect}-${i}`}
-                      className="rounded-brand bg-app px-1.5 py-0.5 text-[10px] font-semibold text-secondary"
-                    >
-                      {humanizeDefect(defect)}
-                    </span>
-                  )
-                )}
+                {allDefects.map((defect, i) => (
+                  <span
+                    key={`${defect}-${i}`}
+                    className="rounded-brand bg-app px-1.5 py-0.5 text-[10px] font-semibold text-secondary"
+                  >
+                    {humanizeDefect(defect)}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -284,19 +306,27 @@ export default function QualityRankingsModal({
         )}
 
         <div className="mt-auto flex flex-col gap-2 border-t border-border-subtle pt-4">
-          {canFlag && (
-            <FlagControl
-              captureId={capture.id}
-              siteId={capture.siteId}
-              date={capture.date}
-              dayPartId={capture.dayPartId}
-              sequence={capture.sequence}
-              flagged={capture.flagged}
-              flagComment={capture.flagComment}
-              canFlag={canFlag}
-              canResolve={viewerRole === "super_admin"}
-            />
-          )}
+          {/* Always rendered (not gated on canFlag) so an already-flagged
+              photo's status/resolve control still shows to a viewer who
+              can't start a NEW flag but can resolve one - canFlag/
+              canResolve below match CaptureTile's own FlagControl exactly,
+              so the same photo behaves identically whether opened from the
+              tile or from here.
+              Keyed by capture.id so its own open/typed-comment state
+              resets when stepping to a different photo, rather than
+              carrying a draft flag comment over onto the wrong capture. */}
+          <FlagControl
+            key={capture.id}
+            captureId={capture.id}
+            siteId={capture.siteId}
+            date={capture.date}
+            dayPartId={capture.dayPartId}
+            sequence={capture.sequence}
+            flagged={capture.flagged}
+            flagComment={capture.flagComment}
+            canFlag={canFlag}
+            canResolve={canManage}
+          />
           {/* Rescoring an already-assessed photo isn't built yet - it would
               need to re-download the image from Storage and re-run
               assessCapture. Shown (not hidden) so its absence reads as

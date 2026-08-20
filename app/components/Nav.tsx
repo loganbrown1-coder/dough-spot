@@ -4,6 +4,7 @@ import { canManageCaptures } from "@/lib/auth";
 import { getCoverageForDate, type CoverageStatus } from "@/lib/data/coverage";
 import { countFlaggedCaptures, getMostRecentCaptureDate } from "@/lib/data/captures";
 import { todayStr } from "@/lib/date";
+import { ROLE_LABELS } from "@/lib/roleLabels";
 import LogoMark from "@/app/components/LogoMark";
 import SidebarLinks from "@/app/components/SidebarLinks";
 import type { Profile } from "@/types";
@@ -92,8 +93,11 @@ export default async function Nav({ user }: { user: Profile | null }) {
 
         <div className="mt-auto px-4 pt-4 text-[11.5px] leading-relaxed text-white/55">
           <p className="truncate">{user.email}</p>
+          <p className="mt-1 inline-block rounded-brand bg-white/15 px-2 py-0.5 text-[10.5px] font-bold text-white">
+            {ROLE_LABELS[user.role]}
+          </p>
           <form action={logoutAction}>
-            <button type="submit" className="text-brand-light hover:text-white">
+            <button type="submit" className="mt-1.5 block text-brand-light hover:text-white">
               Sign out
             </button>
           </form>

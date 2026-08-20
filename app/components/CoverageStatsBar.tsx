@@ -1,10 +1,15 @@
-import { formatRelative } from "@/lib/date";
+import { formatDateLabel, formatRelative, todayStr } from "@/lib/date";
 import type { CoverageSummary } from "@/lib/data/coverage";
 
 export default function CoverageStatsBar({ coverage }: { coverage: CoverageSummary }) {
+  // The board's date defaults to today but the date picker can select any
+  // day - "Photos today" would misreport the count once someone picks a
+  // past date, so the label follows coverage.date instead of assuming.
+  const photosLabel = coverage.date === todayStr() ? "Photos today" : `Photos on ${formatDateLabel(coverage.date)}`;
+
   return (
     <div className="mb-5 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-brand bg-navy px-5 py-4">
-      <Stat label="Photos today" value={coverage.photoCount} />
+      <Stat label={photosLabel} value={coverage.photoCount} />
       <Stat label="Sites reported" value={`${coverage.sitesReported} of ${coverage.sitesTotal}`} />
       <Stat
         label="Day parts missing"
