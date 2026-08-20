@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import FlagControl from "@/app/components/FlagControl";
 import { formatTime } from "@/lib/date";
@@ -298,27 +297,18 @@ export default function QualityRankingsModal({
               canResolve={viewerRole === "super_admin"}
             />
           )}
-          <div className="flex gap-2">
-            {/* Rescoring an already-assessed photo isn't built yet - it would
-                need to re-download the image from Storage and re-run
-                assessCapture. Shown (not hidden) so its absence reads as
-                "not built" rather than the button silently disappearing. */}
-            <button
-              type="button"
-              disabled
-              title="Rescoring isn't available yet"
-              className="flex-1 cursor-not-allowed rounded-brand border border-border-default px-3 py-2 text-[12px] font-bold text-muted opacity-60"
-            >
-              Rescore
-            </button>
-            <Link
-              href={`/dashboard?site=${capture.siteId}`}
-              onClick={onClose}
-              className="flex-1 rounded-brand border border-border-default px-3 py-2 text-center text-[12px] font-bold text-body hover:bg-app"
-            >
-              Full rankings
-            </Link>
-          </div>
+          {/* Rescoring an already-assessed photo isn't built yet - it would
+              need to re-download the image from Storage and re-run
+              assessCapture. Shown (not hidden) so its absence reads as
+              "not built" rather than the button silently disappearing. */}
+          <button
+            type="button"
+            disabled
+            title="Rescoring isn't available yet"
+            className="w-full cursor-not-allowed rounded-brand border border-border-default px-3 py-2 text-[12px] font-bold text-muted opacity-60"
+          >
+            Rescore
+          </button>
         </div>
       </div>
     </div>
