@@ -87,7 +87,7 @@ export default function SiteCoverageCard({ coverage }: { coverage: SiteCoverage 
               key={c.id}
               src={c.thumbnailUrl ?? c.imageUrl}
               alt=""
-              className="aspect-square flex-1 rounded object-cover"
+              className="aspect-square min-w-0 flex-1 rounded object-cover"
             />
           ))}
           {overflowCount > 0 && (
