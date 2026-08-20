@@ -56,6 +56,34 @@ create table if not exists menu_items (
   created_at timestamptz not null default now()
 );
 
+-- One row per Supabase Auth user. Exactly one of the scope columns is set,
+-- depending on role:
+--   super_admin  -> organisation_id, brand_id, site_id all null (OpSpot's
+--                   own admin, sees and manages everything)
+--   agent        -> organisation_id, brand_id, site_id all null (OpSpot's
+--                   own uploader - uploads/replaces/deletes photos for any
+--                   customer, but no admin access)
+--   ops          -> brand_id set (customer, sees every site under that
+--                   brand - view-only, plus can flag a photo)
+--   site_manager -> site_id set (customer, sees that one site - view-only,
+--                   plus can flag a photo)
+-- Created here, before captures, since captures.flagged_by references it.
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null unique,
+  role text not null, -- 'super_admin' | 'agent' | 'ops' | 'site_manager'
+  organisation_id uuid references organisations(id) on delete cascade,
+  brand_id uuid references brands(id) on delete cascade,
+  -- "on delete restrict" means a site with a user still assigned to it
+  -- can't be deleted - reassign or remove that user first.
+  site_id uuid references sites(id) on delete restrict,
+  -- Set by an admin deactivating a user (e.g. someone who's left) without
+  -- deleting their history. Checked at session time in lib/auth.ts, on
+  -- top of also being banned in Supabase Auth itself.
+  disabled boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists captures (
   id uuid primary key default gen_random_uuid(),
   -- "on delete restrict" means a site with any photos against it can't be
@@ -85,33 +113,6 @@ create table if not exists captures (
   flagged_by_email text,
   flagged_at timestamptz,
   unique (site_id, date, day_part_id, sequence)
-);
-
--- One row per Supabase Auth user. Exactly one of the scope columns is set,
--- depending on role:
---   super_admin  -> organisation_id, brand_id, site_id all null (OpSpot's
---                   own admin, sees and manages everything)
---   agent        -> organisation_id, brand_id, site_id all null (OpSpot's
---                   own uploader - uploads/replaces/deletes photos for any
---                   customer, but no admin access)
---   ops          -> brand_id set (customer, sees every site under that
---                   brand - view-only, plus can flag a photo)
---   site_manager -> site_id set (customer, sees that one site - view-only,
---                   plus can flag a photo)
-create table if not exists profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null unique,
-  role text not null, -- 'super_admin' | 'agent' | 'ops' | 'site_manager'
-  organisation_id uuid references organisations(id) on delete cascade,
-  brand_id uuid references brands(id) on delete cascade,
-  -- "on delete restrict" means a site with a user still assigned to it
-  -- can't be deleted - reassign or remove that user first.
-  site_id uuid references sites(id) on delete restrict,
-  -- Set by an admin deactivating a user (e.g. someone who's left) without
-  -- deleting their history. Checked at session time in lib/auth.ts, on
-  -- top of also being banned in Supabase Auth itself.
-  disabled boolean not null default false,
-  created_at timestamptz not null default now()
 );
 
 -- Append-only audit log: every upload, replace, delete, clear-all, flag,
