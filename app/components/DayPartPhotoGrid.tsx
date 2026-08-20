@@ -4,11 +4,13 @@ import { useState } from "react";
 import CaptureTile from "@/app/components/CaptureTile";
 import ClearDayPartButton from "@/app/components/ClearDayPartButton";
 import Lightbox from "@/app/components/Lightbox";
+import type { RankingsSibling } from "@/app/components/QualityRankingsModal";
 import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, MenuItem, Role } from "@/types";
 
 export default function DayPartPhotoGrid({
   siteId,
+  siteName,
   date,
   dayPartId,
   dayPartLabel,
@@ -19,17 +21,24 @@ export default function DayPartPhotoGrid({
   // the "current photos for this shift" section it renders, since an
   // agent's just uploaded them and hasn't had a chance to be scored yet.
   qualityByCaptureId = {},
+  // The full set of captures the Rankings modal should page through -
+  // provided by the dashboard (a whole site+date, crossing day parts) but
+  // left unset on the upload page, which falls back to just this day
+  // part's own 3 photos since it doesn't have the rest of the day loaded.
+  daySiblings,
   readOnly,
   viewerRole,
   onChanged,
 }: {
   siteId: string;
+  siteName: string;
   date: string;
   dayPartId: string;
   dayPartLabel: string;
   captures: Capture[];
   menuItems: MenuItem[];
   qualityByCaptureId?: Record<string, QualityAssessmentRecord>;
+  daySiblings?: RankingsSibling[];
   readOnly: boolean;
   viewerRole: Role;
   onChanged?: () => void;
@@ -39,6 +48,7 @@ export default function DayPartPhotoGrid({
   const ordered = [1, 2, 3]
     .map((seq) => bySequence.get(seq))
     .filter((c): c is Capture => Boolean(c));
+  const rankingsSiblings = daySiblings ?? ordered.map((c) => ({ capture: c, dayPartLabel }));
 
   const [openSequence, setOpenSequence] = useState<number | null>(null);
   const openIndex = ordered.findIndex((c) => c.sequence === openSequence);
@@ -73,10 +83,13 @@ export default function DayPartPhotoGrid({
                   sequence={sequence}
                   dayPartLabel={dayPartLabel}
                   siteId={siteId}
+                  siteName={siteName}
                   date={date}
                   dayPartId={dayPartId}
                   menuItems={menuItems}
                   quality={capture ? qualityByCaptureId[capture.id] : undefined}
+                  qualityByCaptureId={qualityByCaptureId}
+                  rankingsSiblings={rankingsSiblings}
                   readOnly={readOnly}
                   viewerRole={viewerRole}
                   onOpen={setOpenSequence}

@@ -159,6 +159,7 @@ export default function UploadForm({
   const [selectedSiteId, setSelectedSiteId] = useState(defaultSiteId ?? sites[0]?.id);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
 
+  const selectedSiteName = sites.find((s) => s.id === selectedSiteId)?.name ?? "";
   const selectedBrandId = sites.find((s) => s.id === selectedSiteId)?.brandId;
   const selectedOrgId = brands.find((b) => b.id === selectedBrandId)?.organisationId;
   const availableMenuItems = menuItems.filter((m) => m.brandId === selectedBrandId);
@@ -298,6 +299,7 @@ export default function UploadForm({
           </div>
           <DayPartPhotoGrid
             siteId={selectedSiteId}
+            siteName={selectedSiteName}
             date={selectedDate}
             dayPartId={selectedDayPartId}
             dayPartLabel={selectedDayPart.label}

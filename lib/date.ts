@@ -15,6 +15,11 @@ export function formatDateLabel(dateStr: string): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
+/** e.g. "14:32" - the time-of-day portion of a timestamp, local to the viewer. */
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
 /** e.g. "3m ago", "5h ago", "2d ago" - for a timestamp, not a date-only string. */
 export function formatRelative(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();

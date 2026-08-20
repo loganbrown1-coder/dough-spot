@@ -1,22 +1,27 @@
 import DayPartPhotoGrid from "@/app/components/DayPartPhotoGrid";
+import type { RankingsSibling } from "@/app/components/QualityRankingsModal";
 import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, DayPart, MenuItem, Role } from "@/types";
 
 export default function DayPartCard({
   siteId,
+  siteName,
   date,
   dayPart,
   captures,
   menuItems,
   qualityByCaptureId,
+  daySiblings,
   viewerRole,
 }: {
   siteId: string;
+  siteName: string;
   date: string;
   dayPart: DayPart;
   captures: Capture[];
   menuItems: MenuItem[];
   qualityByCaptureId: Record<string, QualityAssessmentRecord>;
+  daySiblings?: RankingsSibling[];
   viewerRole: Role;
 }) {
   return (
@@ -31,12 +36,14 @@ export default function DayPartCard({
       <div className="p-5">
         <DayPartPhotoGrid
           siteId={siteId}
+          siteName={siteName}
           date={date}
           dayPartId={dayPart.id}
           dayPartLabel={dayPart.label}
           captures={captures}
           menuItems={menuItems}
           qualityByCaptureId={qualityByCaptureId}
+          daySiblings={daySiblings}
           readOnly
           viewerRole={viewerRole}
         />
