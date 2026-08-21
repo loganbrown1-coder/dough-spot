@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { updateMenuItemPhotoAction } from "@/lib/actions/admin";
+import { compressImage } from "@/lib/compressImage";
 
 export default function MenuItemPhotoField({
   menuItemId,
@@ -23,7 +24,13 @@ export default function MenuItemPhotoField({
     if (!file) return;
     setError(null);
     startTransition(async () => {
-      const result = await updateMenuItemPhotoAction(menuItemId, file);
+      // Same compression captures already go through - this photo is sent
+      // to Claude on every scoring call once reference photos are in use
+      // (see getMenuItemReferences), so an uncompressed original would
+      // multiply cost by however much larger it is than a capture photo,
+      // for no accuracy benefit.
+      const compressed = await compressImage(file);
+      const result = await updateMenuItemPhotoAction(menuItemId, compressed);
       if (result.error) setError(result.error);
       else router.refresh();
       if (fileInputRef.current) fileInputRef.current.value = "";
