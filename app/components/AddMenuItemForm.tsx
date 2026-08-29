@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createMenuItemAction, type AdminFormState } from "@/lib/actions/admin";
+import { compressImage } from "@/lib/compressImage";
 import type { Brand } from "@/types";
 
 const initialState: AdminFormState = {};
@@ -23,6 +24,31 @@ function SubmitButton() {
 export default function AddMenuItemForm({ brands }: { brands: Brand[] }) {
   const [state, formAction] = useActionState(createMenuItemAction, initialState);
   const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Compressed the same way MenuItemPhotoField compresses a photo change -
+  // this file is sent to Claude on every scoring call once reference
+  // photos are in use (see getMenuItemReferences), so an uncompressed
+  // original would multiply cost by however much larger it is than a
+  // capture photo, for no accuracy benefit.
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setFileName(null);
+      return;
+    }
+    try {
+      const compressed = await compressImage(file);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(compressed);
+      if (fileInputRef.current) fileInputRef.current.files = dataTransfer.files;
+      setFileName(compressed.name);
+    } catch {
+      // If compression fails for any reason, fall back to the original
+      // file the browser already put in input.files - upload can proceed.
+      setFileName(file.name);
+    }
+  }
   // See AddSiteForm for why this is a counter rather than
   // state.success ? "reset" : "form" - that only remounts once. The
   // remount also resets fileName above, since it's local state in this
@@ -77,13 +103,14 @@ export default function AddMenuItemForm({ brands }: { brands: Brand[] }) {
             <span className="truncate">{fileName ?? "Choose file"}</span>
           </label>
           <input
+            ref={fileInputRef}
             id="referenceImage"
             name="referenceImage"
             type="file"
             accept="image/*"
             required
             className="sr-only"
-            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+            onChange={handleFileChange}
           />
         </div>
         <SubmitButton />
