@@ -7,6 +7,7 @@ Defect codes: ${DEFECT_CODES.spec.join(", ")}
 
 NEAT - Presentation
 Pass looks like: pizza fits the box with a small gap, box is clean, no burnt flakes or excess flour, cut into even slices, attractive overall.
+Note: boxes are commonly lined with a printed greaseproof/wax paper - this is normal packaging, never read it as mess, debris, or a sign the box itself is dirty. Some photos show the pizza whole, before it has been sliced - if no cut lines are visible at all, do not judge slice evenness or count it as a defect; only assess slicing when slices are actually visible in the photo.
 Defect codes: ${DEFECT_CODES.neat.join(", ")}
 
 HEAT - Cooking quality
@@ -20,6 +21,8 @@ Defect codes: ${DEFECT_CODES.stretch.join(", ")}`;
 const SCORING_INSTRUCTIONS = `Score across four axes. For each, give a 1-5 score, a list of defect codes from the fixed list below (only include ones you actually observe - leave empty if none), and a short note.
 
 ${RUBRIC}
+
+Score generously - a 4 or 5 is the normal, expected result for an ordinary sellable pizza. Reserve 1-2 scores for defects clear and severe enough that a customer would genuinely complain, not small cosmetic imperfections. The same applies to the overall verdict: "fail" means a pizza you would not want served at all - a pizza with one minor, forgivable issue should land on "pass" or "borderline" instead, not "fail".
 
 Then give an overallScore (1-5, your holistic judgement, not a mechanical average), a verdict of "pass", "fail", or "borderline", a confidence of "high", "medium", or "low" (use "low" whenever lighting, angle, or obstruction genuinely limits what you can judge), and a one-to-two sentence summary.`;
 
@@ -78,16 +81,16 @@ ${numbered}
 
 After those, one more photo follows - unlabelled. That final photo is the one to assess. Judge only what is visible in it. Do not guess at things you can't see (e.g. exact oven temperature, exact ingredient weights) - use the visual proxies the guide itself defines for those.
 
-First, identify which menu item the final photo most closely matches. Choose the identifiedMenuItem value ONLY from the exact names listed above, character for character, or use "unclear" if you genuinely cannot tell from the photo. Give an identificationConfidence of "high", "medium", or "low" for that call.
+First, identify which menu item the final photo most closely matches. Choose the identifiedMenuItem value ONLY from the exact names listed above, character for character. If you genuinely cannot tell from the photo (poor angle, lighting, or obstruction), use "unclear" instead. If the photo clearly shows a pizza that does not match any of the listed items at all - a genuine custom or bespoke order, not one of the standard menu items - use "Custom / off-menu pizza" instead. This should be rare: only use it when none of the candidates are a plausible match, not for ordinary uncertainty (use "unclear" for that). Give an identificationConfidence of "high", "medium", or "low" for that call.
 
-Then grade the final photo against that identified item's build (or, if unclear, against the guide's general rules) using the criteria below.
+Then grade the final photo against that identified item's build (or, for "unclear" or "Custom / off-menu pizza", against the guide's general rules) using the criteria below.
 
 ${SCORING_INSTRUCTIONS}
 
 Respond with ONLY valid JSON matching this shape, no other text:
 
 {
-  "identifiedMenuItem": "<one of the names above, or \\"unclear\\">",
+  "identifiedMenuItem": "<one of the names above, \\"unclear\\", or \\"Custom / off-menu pizza\\">",
   "identificationConfidence": "high" | "medium" | "low",
 ${AXIS_JSON_SHAPE}
 }`;
