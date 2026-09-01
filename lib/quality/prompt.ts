@@ -18,6 +18,24 @@ STRETCH - Dough shape and structure
 Pass looks like: even round shape, consistent centre thickness, aerated crust (roughly 1-1.5in), reaches full size for the box, no holes or thin patches.
 Defect codes: ${DEFECT_CODES.stretch.join(", ")}`;
 
+/**
+ * Shared judgment guardrails - not axis-specific rubric content (that's
+ * RUBRIC above), but rules for what to do when the photo itself makes
+ * judging hard. Added after real scored photos showed three repeat
+ * failure modes: background kitchen clutter counted as a dirty box,
+ * confident defect codes asserted on photos the model's own notes said
+ * it couldn't properly see, and "doesn't fit box" flagged on photos with
+ * no box in frame at all (pizza still on the peel). Shared between both
+ * prompt modes so this doesn't drift between them.
+ */
+const JUDGING_GROUND_RULES = `Judge only what is visible in the photo. Do not guess at things you can't see (e.g. exact oven temperature, exact ingredient weights) - use the visual proxies the guide itself defines for those.
+
+Judge only the pizza itself and its box. Ignore the surrounding kitchen environment - the counter, other equipment, packaging, or people visible in the background is never a presentation defect, however cluttered it looks.
+
+If a criterion isn't visible in the photo at all - e.g. no box in frame at all (pizza on a peel, held in hand), so box fit can't be judged; no cut lines visible, so slice evenness can't be judged - skip that specific defect rather than guessing.
+
+If a large portion of the pizza itself is out of frame, obstructed, or otherwise not clearly visible, set confidence to "low". An axis you genuinely can't assess should default to a mid-range score (3), not a low one - a low score means you observed a real defect, not that the photo made it hard to tell. A photo that's simply hard to see is a photography problem, not evidence the pizza is bad, and should not by itself push the verdict to "fail".`;
+
 const SCORING_INSTRUCTIONS = `Score across four axes. For each, give a 1-5 score, a list of defect codes from the fixed list below (only include ones you actually observe - leave empty if none), and a short note.
 
 ${RUBRIC}
@@ -43,7 +61,9 @@ const AXIS_JSON_SHAPE = `  "spec": { "score": 1-5, "defects": [...], "notes": ".
  * whatever menu item tag the uploader already applied, if any.
  */
 export function buildQualityPrompt(menuItemName: string | null): string {
-  return `You are a QA inspector for Fireaway, assessing a single photo of a pizza against their internal "Taste or Waste" grading guide. Judge only what is visible in the photo. Do not guess at things you can't see (e.g. exact oven temperature, exact ingredient weights) - use the visual proxies the guide itself defines for those.
+  return `You are a QA inspector for Fireaway, assessing a single photo of a pizza against their internal "Taste or Waste" grading guide.
+
+${JUDGING_GROUND_RULES}
 
 ${
   menuItemName
@@ -79,7 +99,9 @@ You are shown ${candidateNames.length} reference photos first, each labelled wit
 
 ${numbered}
 
-After those, one more photo follows - unlabelled. That final photo is the one to assess. Judge only what is visible in it. Do not guess at things you can't see (e.g. exact oven temperature, exact ingredient weights) - use the visual proxies the guide itself defines for those.
+After those, one more photo follows - unlabelled. That final photo is the one to assess.
+
+${JUDGING_GROUND_RULES}
 
 First, identify which menu item the final photo most closely matches. Choose the identifiedMenuItem value ONLY from the exact names listed above, character for character. If you genuinely cannot tell from the photo (poor angle, lighting, or obstruction), use "unclear" instead. If the photo clearly shows a pizza that does not match any of the listed items at all - a genuine custom or bespoke order, not one of the standard menu items - use "Custom / off-menu pizza" instead. This should be rare: only use it when none of the candidates are a plausible match, not for ordinary uncertainty (use "unclear" for that). Give an identificationConfidence of "high", "medium", or "low" for that call.
 
