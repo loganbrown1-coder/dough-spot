@@ -16,6 +16,9 @@ import QualityRankingsModal from "@/app/components/QualityRankingsModal";
 import type { QualityAssessmentRecord } from "@/lib/quality/schema";
 import type { Capture, MenuItem, Role } from "@/types";
 
+/** Values the model returns in place of a real menu item name - see buildIdentifyAndGradePrompt. Never shown to customers as if they were an actual item. */
+const AI_UNRESOLVED_LABELS = new Set(["unclear", "Custom / off-menu pizza"]);
+
 function MenuItemSelect({
   captureId,
   menuItemId,
@@ -303,6 +306,15 @@ export default function CaptureTile({
   const identifiedMenuItemName = quality?.identifiedMenuItemId
     ? menuItems.find((m) => m.id === quality.identifiedMenuItemId)?.name ?? null
     : quality?.identifiedMenuItemName ?? null; // "unclear" case - not an id, but still worth showing
+  // Customers only ever see one label, and it should never be a sentinel
+  // like "unclear" or "Custom / off-menu pizza" masquerading as a real
+  // item name - fall back to the human tag (which OpSpot staff already see
+  // as the primary label, with the AI's guess alongside it via
+  // QualityBadge) whenever the AI hasn't matched a real item.
+  const customerFacingItemName =
+    identifiedMenuItemName && !AI_UNRESOLVED_LABELS.has(identifiedMenuItemName)
+      ? identifiedMenuItemName
+      : menuItemName;
 
   function notifyChanged() {
     if (onChanged) onChanged();
@@ -404,9 +416,17 @@ export default function CaptureTile({
 
       {!readOnly && canManage ? (
         <MenuItemSelect captureId={capture.id} menuItemId={capture.menuItemId} menuItems={menuItems} />
-      ) : (
+      ) : canManage ? (
         <p className="truncate text-[11px] font-semibold text-body">
           {menuItemName ?? <span className="text-muted">No menu item</span>}
+        </p>
+      ) : (
+        // Fireaway staff/site managers only ever see one label - the AI's
+        // identification where it has one, the human tag otherwise. OpSpot
+        // accounts (canManage, above) see both: this same human tag, plus
+        // the AI's separate guess via QualityBadge below.
+        <p className="truncate text-[11px] font-semibold text-body">
+          {customerFacingItemName ?? <span className="text-muted">No menu item</span>}
         </p>
       )}
 
