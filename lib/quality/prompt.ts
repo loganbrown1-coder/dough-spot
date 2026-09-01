@@ -36,13 +36,13 @@ If a criterion isn't visible in the photo at all - e.g. no box in frame at all (
 
 If a large portion of the pizza itself is out of frame, obstructed, or otherwise not clearly visible, set confidence to "low". An axis you genuinely can't assess should default to a mid-range score (3), not a low one - a low score means you observed a real defect, not that the photo made it hard to tell. A photo that's simply hard to see is a photography problem, not evidence the pizza is bad, and should not by itself push the verdict to "fail".`;
 
-const SCORING_INSTRUCTIONS = `Score across four axes. For each, give a 1-5 score, a list of defect codes from the fixed list below (only include ones you actually observe - leave empty if none), and a short note.
+const SCORING_INSTRUCTIONS = `Score across four axes. For each, give a 1-5 score, a list of defect codes from the fixed list below (only include ones you actually observe - leave empty if none), and a note of one short, plain sentence - state what you saw, nothing more.
 
 ${RUBRIC}
 
 Score generously - a 4 or 5 is the normal, expected result for an ordinary sellable pizza. Reserve 1-2 scores for defects clear and severe enough that a customer would genuinely complain, not small cosmetic imperfections. The same applies to the overall verdict: "fail" means a pizza you would not want served at all - a pizza with one minor, forgivable issue should land on "pass" or "borderline" instead, not "fail".
 
-Then give an overallScore (1-5, your holistic judgement, not a mechanical average), a verdict of "pass", "fail", or "borderline", a confidence of "high", "medium", or "low" (use "low" whenever lighting, angle, or obstruction genuinely limits what you can judge), and a one-to-two sentence summary.`;
+Then give an overallScore (1-5, your holistic judgement, not a mechanical average), a verdict of "pass", "fail", or "borderline", a confidence of "high", "medium", or "low" (use "low" whenever lighting, angle, or obstruction genuinely limits what you can judge), and a summary of one short, plain sentence.`;
 
 const AXIS_JSON_SHAPE = `  "spec": { "score": 1-5, "defects": [...], "notes": "..." },
   "neat": { "score": 1-5, "defects": [...], "notes": "..." },
