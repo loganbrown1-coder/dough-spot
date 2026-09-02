@@ -246,6 +246,7 @@ function validateAssessment(value: unknown, referenceItems: ReferenceItem[]): Qu
       : null;
 
   return {
+    insufficientEvidence: v.insufficientEvidence === true,
     spec: validateAxis("spec", v.spec),
     neat: validateAxis("neat", v.neat),
     heat: validateAxis("heat", v.heat),

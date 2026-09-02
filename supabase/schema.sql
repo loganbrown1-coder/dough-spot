@@ -134,6 +134,13 @@ create table if not exists quality_assessments (
   id uuid primary key default gen_random_uuid(),
   capture_id uuid not null references captures(id) on delete cascade,
   model text not null,
+  -- True when the pizza itself wasn't clearly visible enough in the photo
+  -- to actually judge - see JUDGING_GROUND_RULES in lib/quality/prompt.ts.
+  -- Every other column is still filled in (score 3 across the board, no
+  -- defects, verdict "borderline", confidence "low") so the row shape stays
+  -- consistent; this is what tells a reader "this wasn't a real
+  -- assessment," not that the pizza was mediocre.
+  insufficient_evidence boolean not null default false,
   spec_score smallint not null check (spec_score between 1 and 5),
   spec_defects text[] not null default '{}',
   spec_notes text not null default '',

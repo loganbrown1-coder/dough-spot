@@ -71,6 +71,15 @@ export type QualityConfidence = "high" | "medium" | "low";
 // a given code actually belongs to isn't tracked in the type, only enforced
 // at runtime by validateAxis checking against DEFECT_CODES[axis].
 export interface QualityAssessment {
+  // Set when the pizza itself isn't clearly visible enough in the photo to
+  // actually judge - out of frame, obstructed, too distant/blurry - rather
+  // than the model inventing a plausible-sounding score for something it
+  // can't really see. Every other field is still filled in when this is
+  // true (score 3 across the board, no defects, verdict "borderline",
+  // confidence "low" - see JUDGING_GROUND_RULES in prompt.ts), so the shape
+  // stays consistent; this flag is what tells a caller "this wasn't a real
+  // assessment" rather than "this pizza was mediocre."
+  insufficientEvidence: boolean;
   spec: AxisScore;
   neat: AxisScore;
   heat: AxisScore;

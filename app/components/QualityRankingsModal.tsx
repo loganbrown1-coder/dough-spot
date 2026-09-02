@@ -70,7 +70,18 @@ export default function QualityRankingsModal({
         </div>
 
         <div className="flex flex-1 flex-col gap-4">
-          {assessment ? (
+          {assessment?.insufficientEvidence ? (
+            <div>
+              <span className="rounded-brand border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800">
+                ⚠ Photo unclear
+              </span>
+              <p className="mt-1.5 text-[13px] leading-snug text-secondary">{assessment.summary}</p>
+              <p className="mt-1.5 text-[11px] leading-snug text-muted">
+                This photo wasn&apos;t clear enough for the model to actually judge - it wasn&apos;t
+                scored, not scored low. Retake and re-upload for a real assessment.
+              </p>
+            </div>
+          ) : assessment ? (
             <>
               <div>
                 <div className="flex items-center gap-2">

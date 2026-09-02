@@ -7,7 +7,7 @@ Defect codes: ${DEFECT_CODES.spec.join(", ")}
 
 NEAT - Presentation
 Pass looks like: pizza fits the box with a small gap, box is clean, no burnt flakes or excess flour, cut into even slices, attractive overall.
-Note: boxes are commonly lined with a printed greaseproof/wax paper - this is normal packaging, never read it as mess, debris, or a sign the box itself is dirty. Some photos show the pizza whole, before it has been sliced - if no cut lines are visible at all, do not judge slice evenness or count it as a defect; only assess slicing when slices are actually visible in the photo.
+Note: boxes are commonly lined with a printed greaseproof/wax paper - this is normal packaging, never read it as mess, debris, or a sign the box itself is dirty. Many photos show the pizza whole, before it has been sliced - look for actual cut lines running across the pizza before saying anything about slicing at all. If you do not see clear cut lines separating it into pieces, it has not been sliced yet: do not use "uneven_slices", and do not infer unevenness from the pizza's shape, toppings, or anything else. Only judge slice evenness when slices are plainly visible.
 Defect codes: ${DEFECT_CODES.neat.join(", ")}
 
 HEAT - Cooking quality
@@ -34,7 +34,7 @@ Judge only the pizza itself and its box. Ignore the surrounding kitchen environm
 
 If a criterion isn't visible in the photo at all - e.g. no box in frame at all (pizza on a peel, held in hand), so box fit can't be judged; no cut lines visible, so slice evenness can't be judged - skip that specific defect rather than guessing.
 
-If a large portion of the pizza itself is out of frame, obstructed, or otherwise not clearly visible, set confidence to "low". An axis you genuinely can't assess should default to a mid-range score (3), not a low one - a low score means you observed a real defect, not that the photo made it hard to tell. A photo that's simply hard to see is a photography problem, not evidence the pizza is bad, and should not by itself push the verdict to "fail".`;
+If the pizza itself isn't clearly visible enough to actually judge - most of it out of frame, obstructed by a hand or equipment, too distant, or too blurry to make out real detail (not just a slightly awkward angle you can still judge past) - set insufficientEvidence to true. This is the correct answer for that situation, not a low score: do not invent specific defects for something you cannot really see, however plausible they sound. When insufficientEvidence is true, still fill in every field so the response stays well-formed - score every axis 3, leave every defects list empty, set verdict to "borderline", confidence to "low" - and write the summary as a plain, one-sentence explanation of why the photo isn't usable, e.g. "Pizza mostly out of frame - retake needed." A photo that's simply hard to see is a photography problem, not evidence the pizza is bad.`;
 
 const SCORING_INSTRUCTIONS = `Score across four axes. For each, give a 1-5 score, a list of defect codes from the fixed list below (only include ones you actually observe - leave empty if none), and a note of one short, plain sentence - state what you saw, nothing more.
 
@@ -44,7 +44,8 @@ Score generously - a 4 or 5 is the normal, expected result for an ordinary sella
 
 Then give an overallScore (1-5, your holistic judgement, not a mechanical average), a verdict of "pass", "fail", or "borderline", a confidence of "high", "medium", or "low" (use "low" whenever lighting, angle, or obstruction genuinely limits what you can judge), and a summary of one short, plain sentence.`;
 
-const AXIS_JSON_SHAPE = `  "spec": { "score": 1-5, "defects": [...], "notes": "..." },
+const AXIS_JSON_SHAPE = `  "insufficientEvidence": true | false,
+  "spec": { "score": 1-5, "defects": [...], "notes": "..." },
   "neat": { "score": 1-5, "defects": [...], "notes": "..." },
   "heat": { "score": 1-5, "defects": [...], "notes": "..." },
   "stretch": { "score": 1-5, "defects": [...], "notes": "..." },
@@ -105,7 +106,7 @@ ${JUDGING_GROUND_RULES}
 
 First, identify which menu item the final photo most closely matches. Choose the identifiedMenuItem value ONLY from the exact names listed above, character for character. If you genuinely cannot tell from the photo (poor angle, lighting, or obstruction), use "unclear" instead. If the photo clearly shows a pizza that does not match any of the listed items at all - a genuine custom or bespoke order, not one of the standard menu items - use "Custom / off-menu pizza" instead. This should be rare: only use it when none of the candidates are a plausible match, not for ordinary uncertainty (use "unclear" for that). Give an identificationConfidence of "high", "medium", or "low" for that call.
 
-Then grade the final photo against that identified item's build (or, for "unclear" or "Custom / off-menu pizza", against the guide's general rules) using the criteria below.
+Then grade the final photo against that identified item's build (or, for "unclear" or "Custom / off-menu pizza", against the guide's general rules) using the criteria below. Important: if you answered "unclear" or "Custom / off-menu pizza", you have no confirmed recipe to compare against - do not use "incorrect_toppings", "incorrect_topping_quantity", "incorrect_cheese_amount", "incorrect_sauce_amount", or "ingredient_gaps" in that case, since those all claim to know what's missing from a specific known recipe you don't actually have. Purely visual criteria that don't depend on knowing the recipe - uneven distribution, centre loading, bare edges - are still fair to judge if you can see them clearly.
 
 ${SCORING_INSTRUCTIONS}
 

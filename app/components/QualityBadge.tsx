@@ -87,6 +87,29 @@ export default function QualityBadge({
   const identificationMismatch =
     showIdentification && currentMenuItemName !== null && identifiedMenuItemName !== currentMenuItemName;
 
+  if (assessment.insufficientEvidence) {
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-1 rounded-brand border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800"
+          title={assessment.summary}
+        >
+          <span>⚠ Photo unclear</span>
+        </button>
+        {open && (
+          <div className="flex flex-col gap-1 rounded-brand border border-border-default bg-white p-1.5">
+            <p className="text-[10px] leading-snug text-secondary">{assessment.summary}</p>
+            <p className="text-[9px] leading-snug text-muted">
+              Not scored - the photo wasn&apos;t clear enough to judge. Retake and re-upload.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <button

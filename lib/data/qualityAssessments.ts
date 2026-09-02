@@ -20,6 +20,7 @@ function rowToRecord(row: {
   id: string;
   capture_id: string;
   model: string;
+  insufficient_evidence: boolean;
   spec_score: number;
   spec_defects: string[];
   spec_notes: string;
@@ -51,6 +52,7 @@ function rowToRecord(row: {
     id: row.id,
     captureId: row.capture_id,
     model: row.model,
+    insufficientEvidence: row.insufficient_evidence,
     spec: rowToAxisScore(row.spec_score, row.spec_defects, row.spec_notes),
     neat: rowToAxisScore(row.neat_score, row.neat_defects, row.neat_notes),
     heat: rowToAxisScore(row.heat_score, row.heat_defects, row.heat_notes),
@@ -94,6 +96,7 @@ export async function saveQualityAssessment(
   const { error } = await admin.from("quality_assessments").insert({
     capture_id: captureId,
     model,
+    insufficient_evidence: assessment.insufficientEvidence,
     input_tokens: usage.inputTokens,
     output_tokens: usage.outputTokens,
     spec_score: assessment.spec.score,
