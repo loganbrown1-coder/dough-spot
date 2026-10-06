@@ -21,6 +21,7 @@ export default function DayPartPhotoGrid({
   qualityByCaptureId = {},
   readOnly,
   viewerRole,
+  aiEnabled,
   onChanged,
 }: {
   siteId: string;
@@ -32,6 +33,7 @@ export default function DayPartPhotoGrid({
   qualityByCaptureId?: Record<string, QualityAssessmentRecord>;
   readOnly: boolean;
   viewerRole: Role;
+  aiEnabled: boolean;
   onChanged?: () => void;
 }) {
   const bySequence = new Map(captures.map((c) => [c.sequence, c]));
@@ -79,6 +81,7 @@ export default function DayPartPhotoGrid({
                   quality={capture ? qualityByCaptureId[capture.id] : undefined}
                   readOnly={readOnly}
                   viewerRole={viewerRole}
+                  aiEnabled={aiEnabled}
                   onOpen={setOpenSequence}
                   onChanged={onChanged}
                 />

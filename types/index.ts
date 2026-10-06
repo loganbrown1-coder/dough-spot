@@ -105,5 +105,7 @@ export interface Profile {
   brandId: string | null;
   siteId: string | null;
   disabled: boolean;
+  /** Whether this login can see AI quality scoring - see the ai_enabled column on profiles. */
+  aiEnabled: boolean;
   createdAt: string;
 }

@@ -195,6 +195,7 @@ export default function CaptureTile({
   quality,
   readOnly,
   viewerRole,
+  aiEnabled,
   onOpen,
   onChanged,
 }: {
@@ -208,6 +209,8 @@ export default function CaptureTile({
   quality?: QualityAssessmentRecord;
   readOnly: boolean;
   viewerRole: Role;
+  /** Whether this viewer's login has AI scoring switched on (profiles.ai_enabled) - separate from role. */
+  aiEnabled: boolean;
   onOpen: (sequence: number) => void;
   onChanged?: () => void;
 }) {
@@ -312,7 +315,7 @@ export default function CaptureTile({
   // as the primary label, with the AI's guess alongside it via
   // QualityBadge) whenever the AI hasn't matched a real item.
   const customerFacingItemName =
-    identifiedMenuItemName && !AI_UNRESOLVED_LABELS.has(identifiedMenuItemName)
+    aiEnabled && identifiedMenuItemName && !AI_UNRESOLVED_LABELS.has(identifiedMenuItemName)
       ? identifiedMenuItemName
       : menuItemName;
 
@@ -436,20 +439,21 @@ export default function CaptureTile({
         </p>
       )}
 
-      {/* Internal only (OpSpot's own accounts) - Fireaway staff (ops,
-          site_manager) don't see automated quality scores yet. This is a
-          UI-level check on top of the real gate: quality_assessments'
-          select policy already excludes those roles at the database level
-          (see supabase/migrations/016_quality_assessments_internal_only.sql),
-          so `quality` will simply be undefined for them regardless - this
-          just avoids relying on that alone. */}
-      {canManage && (
+      {/* AI scoring is shown per login, not per role: only when this
+          user's ai_enabled switch is on (Admin > Users). That's a UI-level
+          check on top of the real gate - quality_assessments' select policy
+          reads the same flag at the database level (migration 022), so
+          `quality` is simply undefined for anyone with it off regardless.
+          Reviewing a verdict stays OpSpot-only (canManage) even when a
+          customer has AI switched on. */}
+      {aiEnabled && (
         <>
           {quality && (
             <QualityBadge
               assessment={quality}
               identifiedMenuItemName={identifiedMenuItemName}
               currentMenuItemName={menuItemName ?? null}
+              canReview={canManage}
               onChanged={notifyChanged}
             />
           )}

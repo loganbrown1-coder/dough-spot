@@ -81,6 +81,10 @@ create table if not exists profiles (
   -- deleting their history. Checked at session time in lib/auth.ts, on
   -- top of also being banned in Supabase Auth itself.
   disabled boolean not null default false,
+  -- Whether this login can see the AI quality scoring at all (score
+  -- badges, Rankings, the AI's menu item guess). Switched per user from
+  -- Admin > Users; enforced by quality_assessments' RLS policies below.
+  ai_enabled boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -292,6 +296,16 @@ $$;
 
 grant execute on function public.accessible_organisation_ids() to authenticated;
 
+-- Whether the current user has AI visibility switched on. Left VOLATILE on
+-- purpose (see migration 010).
+create or replace function public.current_user_ai_enabled()
+returns boolean
+language sql security definer set search_path = public as $$
+  select coalesce((select ai_enabled from profiles where id = auth.uid()), false)
+$$;
+
+grant execute on function public.current_user_ai_enabled() to authenticated;
+
 alter table organisations enable row level security;
 alter table brands enable row level security;
 alter table menu_items enable row level security;
@@ -401,14 +415,16 @@ create policy "captures_delete" on captures for delete using (
 -- tighter than captures_select (which those roles otherwise pass).
 create policy "quality_assessments_select" on quality_assessments for select using (
   capture_id in (select id from captures where site_id in (select accessible_site_ids()))
-  and (select role from current_profile()) in ('agent', 'super_admin')
+  and public.current_user_ai_enabled()
 );
 create policy "quality_assessments_update" on quality_assessments for update using (
   capture_id in (select id from captures where site_id in (select accessible_site_ids()))
   and (select role from current_profile()) in ('agent', 'super_admin')
+  and public.current_user_ai_enabled()
 ) with check (
   capture_id in (select id from captures where site_id in (select accessible_site_ids()))
   and (select role from current_profile()) in ('agent', 'super_admin')
+  and public.current_user_ai_enabled()
 );
 -- No insert/delete policy for the RLS-scoped client - rows are written only
 -- by the service-role client (the scoring job) and removed only via

@@ -145,6 +145,7 @@ export default function UploadForm({
   defaultSiteId,
   defaultDate,
   viewerRole,
+  aiEnabled,
 }: {
   sites: Site[];
   brands: Brand[];
@@ -153,6 +154,7 @@ export default function UploadForm({
   defaultSiteId?: string;
   defaultDate: string;
   viewerRole: Role;
+  aiEnabled: boolean;
 }) {
   const [state, formAction] = useActionState(uploadCapturesAction, initialState);
   const groups = groupSitesByBrand(sites, brands);
@@ -305,6 +307,7 @@ export default function UploadForm({
             menuItems={availableMenuItems}
             readOnly={false}
             viewerRole={viewerRole}
+            aiEnabled={aiEnabled}
             onChanged={refetchExisting}
           />
         </div>

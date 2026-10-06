@@ -19,6 +19,7 @@ export default function SiteSection({
   linkDate,
   showDateLabels,
   viewerRole,
+  aiEnabled,
 }: {
   site: Site;
   dayParts: DayPart[];
@@ -29,6 +30,7 @@ export default function SiteSection({
   linkDate: string;
   showDateLabels: boolean;
   viewerRole: Role;
+  aiEnabled: boolean;
 }) {
   const brandMenuItems = menuItems.filter((m) => m.brandId === site.brandId);
   const totalCaptures = dateRows.reduce((n, row) => n + row.captures.length, 0);
@@ -71,6 +73,7 @@ export default function SiteSection({
                     menuItems={brandMenuItems}
                     qualityByCaptureId={qualityByCaptureId}
                     viewerRole={viewerRole}
+                    aiEnabled={aiEnabled}
                   />
                 ))}
               </div>

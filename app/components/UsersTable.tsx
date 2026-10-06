@@ -9,6 +9,7 @@ import {
   removeUserAction,
 } from "@/lib/actions/admin";
 import { ROLE_LABELS } from "@/lib/roleLabels";
+import AiAccessToggle from "@/app/components/AiAccessToggle";
 import { formatRelative } from "@/lib/date";
 import type { LoginStats } from "@/lib/data/loginEvents";
 import type { Brand, Profile, Role, Site } from "@/types";
@@ -82,7 +83,7 @@ function UserRow({
     return (
       <tr className="border-t border-border-subtle">
         <td className="px-5 py-2.5 text-body">{user.email}</td>
-        <td colSpan={4} className="px-5 py-2.5">
+        <td colSpan={5} className="px-5 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={role}
@@ -170,6 +171,9 @@ function UserRow({
         )}
       </td>
       <td className="px-5 py-2.5">
+        <AiAccessToggle userId={user.id} email={user.email} enabled={user.aiEnabled} />
+      </td>
+      <td className="px-5 py-2.5">
         <div className="flex gap-3">
           <button
             type="button"
@@ -231,6 +235,7 @@ export default function UsersTable({
               <th className="px-5 py-2.5">Role</th>
               <th className="px-5 py-2.5">Scope</th>
               <th className="px-5 py-2.5">Logins</th>
+              <th className="px-5 py-2.5">AI access</th>
               <th className="px-5 py-2.5">Actions</th>
             </tr>
           </thead>

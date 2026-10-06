@@ -38,6 +38,7 @@ export default function QualityBadge({
   assessment,
   identifiedMenuItemName,
   currentMenuItemName,
+  canReview,
   onChanged,
 }: {
   assessment: QualityAssessmentRecord;
@@ -45,6 +46,8 @@ export default function QualityBadge({
   identifiedMenuItemName: string | null;
   /** What the photo is actually tagged as right now, for comparison against the AI's guess. */
   currentMenuItemName: string | null;
+  /** Whether this viewer can confirm/correct the model's calls (OpSpot accounts). Anyone else with AI switched on just reads the score. */
+  canReview: boolean;
   onChanged?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -83,7 +86,10 @@ export default function QualityBadge({
     });
   }
 
-  const showIdentification = Boolean(identifiedMenuItemName);
+  // The AI's menu item guess (and the controls to confirm or correct it)
+  // are OpSpot-only: a customer with AI switched on already sees that name
+  // as the tile's label, and shouldn't see our human tag or review state.
+  const showIdentification = canReview && Boolean(identifiedMenuItemName);
   const identificationMismatch =
     showIdentification && currentMenuItemName !== null && identifiedMenuItemName !== currentMenuItemName;
 
@@ -121,9 +127,11 @@ export default function QualityBadge({
         <span>
           {VERDICT_ICON[assessment.verdict]} {assessment.overallScore}/5
         </span>
-        <span className="text-[9px] font-normal opacity-75">
-          {reviewed ? (humanVerdict === assessment.verdict ? "confirmed" : "corrected") : "review"}
-        </span>
+        {canReview && (
+          <span className="text-[9px] font-normal opacity-75">
+            {reviewed ? (humanVerdict === assessment.verdict ? "confirmed" : "corrected") : "review"}
+          </span>
+        )}
       </button>
 
       {showIdentification && (
@@ -136,27 +144,31 @@ export default function QualityBadge({
       {open && (
         <div className="flex flex-col gap-1.5 rounded-brand border border-border-default bg-white p-1.5">
           <p className="text-[10px] leading-snug text-secondary">{assessment.summary}</p>
-          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted">
-            Is this verdict right?
-          </p>
-          <div className="flex gap-1">
-            {VERDICT_OPTIONS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => submitVerdict(v)}
-                disabled={pending}
-                title={v === assessment.verdict ? "The model's own verdict" : undefined}
-                className={`flex-1 rounded-brand border px-1.5 py-1 text-[10px] font-semibold capitalize disabled:opacity-50 ${
-                  v === assessment.verdict
-                    ? VERDICT_STYLES[v]
-                    : "border-border-default text-secondary hover:border-brand"
-                }`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
+          {canReview && (
+            <>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted">
+                Is this verdict right?
+              </p>
+              <div className="flex gap-1">
+                {VERDICT_OPTIONS.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => submitVerdict(v)}
+                    disabled={pending}
+                    title={v === assessment.verdict ? "The model's own verdict" : undefined}
+                    className={`flex-1 rounded-brand border px-1.5 py-1 text-[10px] font-semibold capitalize disabled:opacity-50 ${
+                      v === assessment.verdict
+                        ? VERDICT_STYLES[v]
+                        : "border-border-default text-secondary hover:border-brand"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {showIdentification && (
             <>

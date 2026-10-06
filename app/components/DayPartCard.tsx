@@ -10,6 +10,7 @@ export default function DayPartCard({
   menuItems,
   qualityByCaptureId,
   viewerRole,
+  aiEnabled,
 }: {
   siteId: string;
   date: string;
@@ -18,6 +19,7 @@ export default function DayPartCard({
   menuItems: MenuItem[];
   qualityByCaptureId: Record<string, QualityAssessmentRecord>;
   viewerRole: Role;
+  aiEnabled: boolean;
 }) {
   return (
     <div className="rounded-brand border border-border-default bg-white">
@@ -39,6 +41,7 @@ export default function DayPartCard({
           qualityByCaptureId={qualityByCaptureId}
           readOnly
           viewerRole={viewerRole}
+          aiEnabled={aiEnabled}
         />
       </div>
     </div>

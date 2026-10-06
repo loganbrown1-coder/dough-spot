@@ -99,9 +99,9 @@ export default async function DashboardPage({
   // Converted from Map to a plain object here - a Map isn't a type Next.js
   // can serialize across the server/client boundary, and this needs to
   // reach DayPartPhotoGrid/CaptureTile, both client components.
-  const qualityByCaptureId = Object.fromEntries(
-    await listLatestQualityAssessments(captures.map((c) => c.id))
-  );
+  const qualityByCaptureId = user.aiEnabled
+    ? Object.fromEntries(await listLatestQualityAssessments(captures.map((c) => c.id)))
+    : {};
 
   const capturesBySite = new Map<string, Capture[]>();
   for (const capture of captures) {
@@ -178,6 +178,7 @@ export default async function DashboardPage({
               linkDate={linkDate}
               showDateLabels={allDates}
               viewerRole={user.role}
+              aiEnabled={user.aiEnabled}
             />
           ) : allDates ? (
             // Date-major: one heading per date (newest first), every site's
@@ -224,6 +225,7 @@ export default async function DashboardPage({
                               linkDate={date}
                               showDateLabels={false}
                               viewerRole={user.role}
+              aiEnabled={user.aiEnabled}
                             />
                           ))}
                         </div>
@@ -262,6 +264,7 @@ export default async function DashboardPage({
                       linkDate={linkDate}
                       showDateLabels={false}
                       viewerRole={user.role}
+              aiEnabled={user.aiEnabled}
                     />
                   ))}
                 </div>

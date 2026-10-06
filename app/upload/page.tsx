@@ -51,6 +51,7 @@ export default async function UploadPage({
             defaultSiteId={defaultSiteId}
             defaultDate={defaultDate}
             viewerRole={user.role}
+            aiEnabled={user.aiEnabled}
           />
         </div>
       )}

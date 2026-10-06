@@ -9,6 +9,7 @@ function rowToProfile(row: {
   brand_id: string | null;
   site_id: string | null;
   disabled: boolean;
+  ai_enabled?: boolean | null;
   created_at: string;
 }): Profile {
   return {
@@ -19,6 +20,8 @@ function rowToProfile(row: {
     brandId: row.brand_id,
     siteId: row.site_id,
     disabled: row.disabled,
+    // Treated as off if the column isn't there yet (migration 022 not run).
+    aiEnabled: row.ai_enabled ?? false,
     createdAt: row.created_at,
   };
 }

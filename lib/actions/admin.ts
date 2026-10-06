@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireSuperAdmin, canManageCaptures } from "@/lib/auth";
 import { redirectUrl } from "@/lib/site-url";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { createOrganisation, getOrganisation, updateOrganisationRetention } from "@/lib/data/organisations";
@@ -671,6 +671,9 @@ export async function inviteUserAction(
     organisation_id: null,
     brand_id: role === "ops" ? brandId : null,
     site_id: role === "site_manager" ? siteId : null,
+    // OpSpot's own accounts see AI scoring by default; customers only once
+    // an admin switches it on for them (see setUserAiAccessAction).
+    ai_enabled: canManageCaptures(role),
   });
   if (profileError) {
     // Undo the auth user so a retry isn't blocked by "already registered".
@@ -708,13 +711,56 @@ export async function updateUserRoleAction(
   }
 
   const admin = getSupabaseAdmin();
+
+  // Moving between an OpSpot role and a customer role resets AI access to
+  // match the new side (OpSpot on, customer off) - otherwise promoting
+  // someone to agent would leave them unable to see AI, and demoting an
+  // agent to a customer role would quietly leave them able to. A move
+  // within the same side (e.g. site_manager to ops) leaves the switch as
+  // an admin set it.
+  const { data: existing } = await admin.from("profiles").select("role").eq("id", userId).maybeSingle();
+  const crossedSides = existing ? canManageCaptures(existing.role as Role) !== canManageCaptures(role) : false;
+
   const { error } = await admin
     .from("profiles")
-    .update({ role, organisation_id: null, brand_id: brandId, site_id: siteId })
+    .update({
+      role,
+      organisation_id: null,
+      brand_id: brandId,
+      site_id: siteId,
+      ...(crossedSides ? { ai_enabled: canManageCaptures(role) } : {}),
+    })
     .eq("id", userId);
   if (error) return { error: error.message };
 
   revalidatePath("/admin");
+  return {};
+}
+
+/**
+ * Switches whether one login can see the AI quality scoring (score badges,
+ * the Rankings view, the AI's menu item guess). Super admin only, and the
+ * change takes effect immediately in the database too - quality_assessments'
+ * row level security policy reads this same flag (migration 022), so this
+ * isn't just hiding a button.
+ */
+export async function setUserAiAccessAction(
+  userId: string,
+  enabled: boolean
+): Promise<{ error?: string }> {
+  await requireSuperAdmin();
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("profiles")
+    .update({ ai_enabled: enabled })
+    .eq("id", userId)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "That user no longer exists." };
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
   return {};
 }
 

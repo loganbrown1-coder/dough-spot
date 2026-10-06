@@ -126,6 +126,9 @@ async function createUser(email, role, scope) {
     organisation_id: scope.organisationId ?? null,
     brand_id: scope.brandId ?? null,
     site_id: scope.siteId ?? null,
+    // OpSpot's own accounts see AI scoring by default; customers don't
+    // until an admin switches it on (Admin > Users).
+    ai_enabled: role === "super_admin" || role === "agent",
   });
   if (profileError) throw profileError;
 }
